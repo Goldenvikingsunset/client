@@ -79,11 +79,59 @@ let theme = createTheme({
     borderRadius: 8,
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: `
+        @media (prefers-color-scheme: light) {
+          :root {
+            color-scheme: light;
+          }
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            color-scheme: dark;
+          }
+        }
+        @media print {
+          * {
+            forced-color-adjust: exact;
+          }
+        }
+      `
+    },
+    MuiButtonBase: {
+      defaultProps: {
+        // Ensure all interactive elements are properly accessible
+        disableRipple: false,
+        focusRipple: true,
+      },
+      styleOverrides: {
+        root: {
+          '&.Mui-focusVisible': {
+            outline: '2px solid #2196f3',
+            outlineOffset: '2px',
+          },
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: 'none',
           borderRadius: 8,
+          '&.Mui-focusVisible': {
+            outline: '2px solid #2196f3',
+            outlineOffset: '2px',
+          },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focusVisible': {
+            outline: '2px solid #2196f3',
+            outlineOffset: '2px',
+          },
         },
       },
     },
@@ -103,10 +151,44 @@ let theme = createTheme({
         },
       },
     },
+    MuiFormControl: {
+      styleOverrides: {
+        root: {
+          '& .MuiInputLabel-root': {
+            fontSize: '1rem',
+          },
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 8,
+          },
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focusVisible': {
+            outline: '2px solid #2196f3',
+            outlineOffset: '-2px',
+            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+          },
+        },
+      },
+    },
+    MuiListItem: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focusVisible': {
+            outline: '2px solid #2196f3',
+            outlineOffset: '-2px',
+            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+          },
+        },
+      },
+    },
   },
 });
 
 // Apply responsive font sizes
 theme = responsiveFontSizes(theme);
 
-export default theme; 
+export default theme;

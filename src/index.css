@@ -5,9 +5,39 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-size-adjust: 100%;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+@media print {
+  * {
+    print-color-adjust: exact;
+    forced-color-adjust: exact;
+  }
+}
+
+/* Improved focus visibility for accessibility */
+:focus {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+}
+
+/* Remove outline for non-keyboard focus */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Ensure focusable elements are visible */
+[tabindex]:not([tabindex="-1"]):focus {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+}
+
+/* Fix min-height in Firefox */
+.MuiTableCell-root {
+  min-height: 0;
 }

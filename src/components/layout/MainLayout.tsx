@@ -18,6 +18,7 @@ import {
   MenuItem,
   Avatar,
   Collapse,
+  NoSsr,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -38,6 +39,7 @@ import {
   Lightbulb as SolutionsIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
+import { FocusTrap } from '@mui/base';
 import { logout } from '../../services/authService';
 import { hasRole, getCurrentUser } from '../../utils/auth';
 
@@ -118,65 +120,82 @@ const MainLayout: React.FC = () => {
     }));
   };
 
-  const drawer = (
-    <div>
-      <DrawerHeader>
-        <IconButton onClick={handleDrawerToggle}>
-          <ChevronLeftIcon />
-        </IconButton>
-      </DrawerHeader>
-      <Divider />
-      <List>
-        {navigationItems.map((item) => {
-          // Skip rendering if user doesn't have required role
-          if (item.requiredRole && !hasRole(item.requiredRole)) {
-            return null;
-          }
+  const drawer = (content: React.ReactNode) => (
+    <FocusTrap open={mobileOpen}>
+      <Box component="div" role="presentation">
+        <DrawerHeader>
+          <IconButton 
+            onClick={handleDrawerToggle} 
+            aria-label="Close navigation menu"
+            tabIndex={mobileOpen ? 0 : -1}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        </DrawerHeader>
+        <Divider />
+        <List>
+          {navigationItems.map((item) => {
+            if (item.requiredRole && !hasRole(item.requiredRole)) {
+              return null;
+            }
 
-          // If item has subitems, render a collapsible menu
-          if (item.subItems && item.subItems.length > 0) {
-            return (
-              <React.Fragment key={item.text}>
-                <ListItem disablePadding>
-                  <ListItemButton 
-                    onClick={() => handleSubMenuToggle(item.text)}
+            if (item.subItems && item.subItems.length > 0) {
+              return (
+                <React.Fragment key={item.text}>
+                  <ListItem disablePadding>
+                    <ListItemButton 
+                      onClick={() => handleSubMenuToggle(item.text)}
+                      aria-expanded={openSubMenus[item.text]}
+                      aria-controls={`submenu-${item.text}`}
+                      tabIndex={mobileOpen ? 0 : -1}
+                    >
+                      <ListItemIcon>{item.icon}</ListItemIcon>
+                      <ListItemText primary={item.text} />
+                      {openSubMenus[item.text] ? <ExpandLess /> : <ExpandMore />}
+                    </ListItemButton>
+                  </ListItem>
+                  <Collapse 
+                    in={openSubMenus[item.text]} 
+                    timeout="auto" 
+                    unmountOnExit
+                    id={`submenu-${item.text}`}
                   >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.text} />
-                    {openSubMenus[item.text] ? <ExpandLess /> : <ExpandMore />}
-                  </ListItemButton>
-                </ListItem>
-                <Collapse in={openSubMenus[item.text]} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    {item.subItems.map((subItem) => (
-                      <ListItem key={subItem.text} disablePadding>
-                        <ListItemButton 
-                          onClick={() => navigate(subItem.path)}
-                          sx={{ pl: 4 }}
-                        >
-                          <ListItemIcon>{subItem.icon}</ListItemIcon>
-                          <ListItemText primary={subItem.text} />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Collapse>
-              </React.Fragment>
-            );
-          }
+                    <List component="div" disablePadding>
+                      {item.subItems.map((subItem) => (
+                        <ListItem key={subItem.text} disablePadding>
+                          <ListItemButton 
+                            onClick={() => navigate(subItem.path)}
+                            sx={{ pl: 4 }}
+                            aria-label={subItem.text}
+                            tabIndex={mobileOpen ? 0 : -1}
+                          >
+                            <ListItemIcon>{subItem.icon}</ListItemIcon>
+                            <ListItemText primary={subItem.text} />
+                          </ListItemButton>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Collapse>
+                </React.Fragment>
+              );
+            }
 
-          // Regular menu item
-          return (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton onClick={() => navigate(item.path)}>
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </List>
-    </div>
+            return (
+              <ListItem key={item.text} disablePadding>
+                <ListItemButton 
+                  onClick={() => navigate(item.path)}
+                  aria-label={item.text}
+                  tabIndex={mobileOpen ? 0 : -1}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Box>
+    </FocusTrap>
   );
 
   return (
@@ -192,31 +211,34 @@ const MainLayout: React.FC = () => {
         <Toolbar>
           <IconButton
             color="inherit"
-            aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { sm: 'none' } }}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileOpen}
+            aria-controls="navigation-drawer"
           >
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Business Central RTM
           </Typography>
-          <div>
+          <Box>
             <IconButton
               size="large"
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
+              aria-controls={open ? 'menu-appbar' : undefined}
+              aria-expanded={open ? 'true' : undefined}
               aria-haspopup="true"
               onClick={handleMenu}
               color="inherit"
+              aria-label="Account menu"
             >
               {user?.username ? (
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }} aria-hidden="true">
                   {user.username.charAt(0).toUpperCase()}
                 </Avatar>
               ) : (
-                <AccountCircle />
+                <AccountCircle aria-hidden="true" />
               )}
             </IconButton>
             <Menu
@@ -233,50 +255,56 @@ const MainLayout: React.FC = () => {
               }}
               open={open}
               onClose={handleClose}
+              aria-label="User account menu"
             >
-              <MenuItem onClick={handleProfile}>Profile</MenuItem>
-              <MenuItem onClick={handleLogout}>Logout</MenuItem>
+              <MenuItem onClick={handleProfile} role="menuitem">Profile</MenuItem>
+              <MenuItem onClick={handleLogout} role="menuitem">Logout</MenuItem>
             </Menu>
-          </div>
+          </Box>
         </Toolbar>
       </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="mailbox folders"
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
+
+      <NoSsr>
+        <Box
+          component="nav"
+          sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+          aria-label="Navigation sidebar"
         >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
+          <Drawer
+            id="navigation-drawer"
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{
+              keepMounted: true,
+            }}
+            sx={{
+              display: { xs: 'block', sm: 'none' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            }}
+          >
+            {drawer(null)}
+          </Drawer>
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: 'none', sm: 'block' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            }}
+            open
+          >
+            {drawer(null)}
+          </Drawer>
+        </Box>
+      </NoSsr>
+
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          mt: 8, // Add margin top to prevent content from going under the AppBar
+          mt: 8,
         }}
       >
         <Outlet />

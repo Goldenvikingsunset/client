@@ -9,6 +9,16 @@ import {
   CircularProgress,
   Alert,
   Divider,
+  Tab,
+  Tabs,
+  Card,
+  CardContent,
+  IconButton,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material';
 import {
   Timeline,
@@ -22,11 +32,40 @@ import {
 import {
   Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
+  Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
-import { getRequirementById } from '../../services/requirementService';
+import { getRequirementById, deleteRequirement } from '../../services/requirementService';
 import { ChangeLog, Requirement } from '../../types';
 import { hasRole } from '../../utils/auth';
 import { StatusChip } from '../shared/StatusChip';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+const TabPanel = (props: TabPanelProps) => {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`solution-tabpanel-${index}`}
+      aria-labelledby={`solution-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ pt: 2 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+};
 
 const RequirementDetail: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +73,8 @@ const RequirementDetail: React.FC = () => {
   const [requirement, setRequirement] = useState<Requirement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [solutionTabIndex, setSolutionTabIndex] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchRequirement = async () => {
@@ -95,6 +136,17 @@ const RequirementDetail: React.FC = () => {
     return 'Changed';
   };
 
+  const handleDelete = async () => {
+    try {
+      if (!id) return;
+      await deleteRequirement(parseInt(id));
+      navigate('/requirements', { state: { message: 'Requirement deleted successfully' } });
+    } catch (err: any) {
+      console.error('Error deleting requirement:', err);
+      setError(err.response?.data?.message || 'Failed to delete requirement');
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -122,8 +174,8 @@ const RequirementDetail: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+      {/* Header with Actions */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
@@ -133,20 +185,30 @@ const RequirementDetail: React.FC = () => {
         </Button>
         
         {hasRole('Consultant') && (
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<EditIcon />}
-            onClick={() => navigate(`/requirements/edit/${requirement.req_id}`)}
-          >
-            Edit Requirement
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<EditIcon />}
+              onClick={() => navigate(`/requirements/edit/${requirement?.req_id}`)}
+            >
+              Edit Requirement
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              Delete
+            </Button>
+          </Box>
         )}
       </Box>
 
       {/* Main Content */}
       <Grid container spacing={3}>
-        {/* Basic Information */}
+        {/* Title and Basic Info */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3, mb: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -172,7 +234,52 @@ const RequirementDetail: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Classification & Status */}
+        {/* Business Central Classification */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h6" gutterBottom color="primary">
+              Business Central Classification
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Functional Department
+                </Typography>
+                <Typography variant="body1">
+                  {requirement?.BCFunctionalDepartment?.name || 'Not specified'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Functional Area
+                </Typography>
+                <Typography variant="body1">
+                  {requirement?.FunctionalArea?.name || 'Not specified'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Template Item
+                </Typography>
+                <StatusChip
+                  label={requirement?.template_item ? 'Yes' : 'No'}
+                  type="status"
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Workshop
+                </Typography>
+                <Typography variant="body1">
+                  {requirement?.workshop_name || 'Not specified'}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+
+        {/* Status and Classification */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant="h6" gutterBottom color="primary">
@@ -223,39 +330,140 @@ const RequirementDetail: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Solution Information */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
+        {/* Solution Options */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom color="primary">
-              Solution
+              Solution Options
             </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Fit/Gap Analysis
-                </Typography>
-                {requirement.FitGapStatus?.name && (
-                  <StatusChip
-                    label={requirement.FitGapStatus.name}
-                    type="fitgap"
-                  />
-                )}
+            <Tabs
+              value={solutionTabIndex}
+              onChange={(_, newValue) => setSolutionTabIndex(newValue)}
+              aria-label="solution options tabs"
+            >
+              <Tab label="Option 1" />
+              <Tab label="Option 2" />
+              <Tab label="Option 3" />
+            </Tabs>
+            
+            <TabPanel value={solutionTabIndex} index={0}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Description
+                  </Typography>
+                  <Typography variant="body1">
+                    {requirement?.solution_option_1 || 'No solution description provided'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Time Estimate
+                  </Typography>
+                  <Typography variant="body1">
+                    {requirement?.solution_option_1_time_estimate 
+                      ? `${requirement.solution_option_1_time_estimate} hours`
+                      : 'No estimate provided'}
+                  </Typography>
+                </Grid>
               </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Solution Option
-                </Typography>
-                <Typography variant="body1">
-                  {requirement.SolutionOption?.name || 'Not specified'}
-                </Typography>
+            </TabPanel>
+            
+            <TabPanel value={solutionTabIndex} index={1}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Description
+                  </Typography>
+                  <Typography variant="body1">
+                    {requirement?.solution_option_2 || 'No solution description provided'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Time Estimate
+                  </Typography>
+                  <Typography variant="body1">
+                    {requirement?.solution_option_2_time_estimate 
+                      ? `${requirement.solution_option_2_time_estimate} hours`
+                      : 'No estimate provided'}
+                  </Typography>
+                </Grid>
               </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Solution Description
-                </Typography>
-                <Typography variant="body1">
-                  {requirement.comments || 'No solution description provided'}
-                </Typography>
+            </TabPanel>
+            
+            <TabPanel value={solutionTabIndex} index={2}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Description
+                  </Typography>
+                  <Typography variant="body1">
+                    {requirement?.solution_option_3 || 'No solution description provided'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Time Estimate
+                  </Typography>
+                  <Typography variant="body1">
+                    {requirement?.solution_option_3_time_estimate 
+                      ? `${requirement.solution_option_3_time_estimate} hours`
+                      : 'No estimate provided'}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </TabPanel>
+          </Paper>
+        </Grid>
+
+        {/* Client Assessment */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom color="primary">
+              Client Assessment
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Client Status
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {requirement?.status_client && (
+                        <StatusChip
+                          label={requirement.status_client}
+                          type="status"
+                        />
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Client Comments
+                    </Typography>
+                    <Typography variant="body1">
+                      {requirement?.client_comments || 'No comments provided'}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Client Preferences
+                    </Typography>
+                    <Typography variant="body1">
+                      {requirement?.client_preferences || 'No preferences specified'}
+                    </Typography>
+                  </CardContent>
+                </Card>
               </Grid>
             </Grid>
           </Paper>
@@ -363,6 +571,25 @@ const RequirementDetail: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this requirement? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

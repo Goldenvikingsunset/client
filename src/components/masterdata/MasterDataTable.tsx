@@ -249,7 +249,7 @@ const MasterDataTable = <T extends BaseMasterData>({
         )}
         
         <TableContainer>
-          <Table sx={{ minWidth: 650 }}>
+          <Table sx={{ minWidth: 650 }} aria-label={`${entityName} data table`}>
             <TableHead>
               <TableRow>
                 <TableCell>Name</TableCell>
@@ -273,6 +273,9 @@ const MasterDataTable = <T extends BaseMasterData>({
                       placeholder="Enter name"
                       error={actionError?.includes('Name')}
                       helperText={actionError?.includes('Name') ? actionError : ''}
+                      inputProps={{
+                        'aria-label': `New ${entityName.toLowerCase()} name`
+                      }}
                     />
                   </TableCell>
                   <TableCell>
@@ -283,6 +286,9 @@ const MasterDataTable = <T extends BaseMasterData>({
                       fullWidth
                       size="small"
                       placeholder="Enter description"
+                      inputProps={{
+                        'aria-label': `New ${entityName.toLowerCase()} description`
+                      }}
                     />
                   </TableCell>
                   {additionalColumns.map((col) => (
@@ -294,6 +300,9 @@ const MasterDataTable = <T extends BaseMasterData>({
                         fullWidth
                         size="small"
                         placeholder={`Enter ${col.header.toLowerCase()}`}
+                        inputProps={{
+                          'aria-label': `New ${entityName.toLowerCase()} ${col.header.toLowerCase()}`
+                        }}
                       />
                     </TableCell>
                   ))}
@@ -302,6 +311,7 @@ const MasterDataTable = <T extends BaseMasterData>({
                       color="primary"
                       onClick={handleSaveAdd}
                       disabled={actionLoading}
+                      aria-label={`Save new ${entityName.toLowerCase()}`}
                     >
                       {actionLoading ? <CircularProgress size={24} /> : <SaveIcon />}
                     </IconButton>
@@ -309,6 +319,7 @@ const MasterDataTable = <T extends BaseMasterData>({
                       color="default"
                       onClick={handleCancelAdd}
                       disabled={actionLoading}
+                      aria-label="Cancel adding new item"
                     >
                       <CancelIcon />
                     </IconButton>
@@ -319,7 +330,7 @@ const MasterDataTable = <T extends BaseMasterData>({
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={2 + additionalColumns.length + (hasRole('Admin') ? 1 : 0)} align="center">
-                    <CircularProgress size={30} sx={{ my: 3 }} />
+                    <CircularProgress size={30} sx={{ my: 3 }} aria-label="Loading data" />
                   </TableCell>
                 </TableRow>
               ) : data.length === 0 ? (
@@ -343,6 +354,9 @@ const MasterDataTable = <T extends BaseMasterData>({
                           size="small"
                           error={actionError?.includes('Name')}
                           helperText={actionError?.includes('Name') ? actionError : ''}
+                          inputProps={{
+                            'aria-label': `Edit ${entityName.toLowerCase()} name`
+                          }}
                         />
                       ) : (
                         item.name
@@ -356,6 +370,9 @@ const MasterDataTable = <T extends BaseMasterData>({
                           onChange={handleEditItemChange}
                           fullWidth
                           size="small"
+                          inputProps={{
+                            'aria-label': `Edit ${entityName.toLowerCase()} description`
+                          }}
                         />
                       ) : (
                         item.description || '-'
@@ -370,6 +387,9 @@ const MasterDataTable = <T extends BaseMasterData>({
                             onChange={handleEditItemChange}
                             fullWidth
                             size="small"
+                            inputProps={{
+                              'aria-label': `Edit ${entityName.toLowerCase()} ${col.header.toLowerCase()}`
+                            }}
                           />
                         ) : col.render ? (
                           col.render(item)
@@ -386,6 +406,7 @@ const MasterDataTable = <T extends BaseMasterData>({
                               color="primary"
                               onClick={handleSaveEdit}
                               disabled={actionLoading}
+                              aria-label="Save changes"
                             >
                               {actionLoading ? <CircularProgress size={24} /> : <SaveIcon />}
                             </IconButton>
@@ -393,6 +414,7 @@ const MasterDataTable = <T extends BaseMasterData>({
                               color="default"
                               onClick={handleCancelEdit}
                               disabled={actionLoading}
+                              aria-label="Cancel editing"
                             >
                               <CancelIcon />
                             </IconButton>
@@ -404,6 +426,7 @@ const MasterDataTable = <T extends BaseMasterData>({
                                 color="primary"
                                 onClick={() => handleStartEdit(item)}
                                 disabled={!!editingId || addMode}
+                                aria-label={`Edit ${entityName.toLowerCase()}`}
                               >
                                 <EditIcon />
                               </IconButton>
@@ -413,6 +436,7 @@ const MasterDataTable = <T extends BaseMasterData>({
                                 color="error"
                                 onClick={() => handleDeleteClick(item[idField])}
                                 disabled={!!editingId || addMode}
+                                aria-label={`Delete ${entityName.toLowerCase()}`}
                               >
                                 <DeleteIcon />
                               </IconButton>
@@ -468,4 +492,4 @@ const MasterDataTable = <T extends BaseMasterData>({
   );
 };
 
-export default MasterDataTable; 
+export default MasterDataTable;

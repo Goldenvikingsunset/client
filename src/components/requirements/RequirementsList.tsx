@@ -30,6 +30,15 @@ import {
   DialogContent,
   DialogActions,
   Divider,
+  Checkbox,
+  ListItemText,
+  Popover,
+  List,
+  ListItem,
+  ListItemIcon,
+  FormControlLabel,
+  Switch,
+  TableSortLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -41,11 +50,13 @@ import {
   Save as SaveIcon,
   FilterList as FilterIcon,
   CloudUpload as CloudUploadIcon,
+  ViewColumn as ViewColumnIcon,
 } from '@mui/icons-material';
 import { getRequirements, exportRequirements } from '../../services/requirementService';
 import { getSavedFilters, saveFilter, deleteFilter } from '../../services/filterService';
-import { Requirement, Priority, Status, FitGapStatus, Module, SubModule, Function, SavedFilter } from '../../types';
+import { Requirement, Priority, Status, FitGapStatus, Module, SubModule, Function, SavedFilter, BCFunctionalDepartment, FunctionalArea } from '../../types';
 import { modules, subModules, functions, priorities, statuses, fitGapStatuses } from '../../services/masterDataService';
+import bcDataService from '../../services/bcDataService';
 import { hasRole } from '../../utils/auth';
 import { StatusChip } from '../shared/StatusChip';
 
@@ -60,6 +71,14 @@ interface FilterObject {
   search?: string;
   in_scope?: boolean;
   [key: string]: string | boolean | undefined;
+}
+
+interface ColumnConfig {
+  id: string;
+  label: string;
+  visible: boolean;
+  sortable: boolean;
+  minWidth?: number;
 }
 
 const RequirementsList: React.FC = () => {
@@ -98,27 +117,61 @@ const RequirementsList: React.FC = () => {
   const [filterName, setFilterName] = useState('');
   const [filterError, setFilterError] = useState<string | null>(null);
 
+  // New states for column management and enhanced filtering
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('');
+  const [selectedArea, setSelectedArea] = useState<string>('');
+  const [showTemplateOnly, setShowTemplateOnly] = useState<boolean>(false);
+  const [sortField, setSortField] = useState<string>('id');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [columnConfigAnchor, setColumnConfigAnchor] = useState<null | HTMLElement>(null);
+  
+  // Column configuration
+  const [columns, setColumns] = useState<ColumnConfig[]>([
+    { id: 'req_id', label: 'ID', visible: true, sortable: true, minWidth: 70 },
+    { id: 'title', label: 'Title', visible: true, sortable: true, minWidth: 200 },
+    { id: 'businessCentralDepartment', label: 'Department', visible: true, sortable: true, minWidth: 150 },
+    { id: 'functionalArea', label: 'Functional Area', visible: true, sortable: true, minWidth: 150 },
+    { id: 'isTemplateItem', label: 'Template', visible: true, sortable: true, minWidth: 100 },
+    { id: 'functionalConsultant', label: 'Consultant', visible: true, sortable: true, minWidth: 150 },
+    { id: 'requirementOwnerClient', label: 'Client Owner', visible: false, sortable: true, minWidth: 150 },
+    { id: 'solutionOption', label: 'Solution', visible: true, sortable: true, minWidth: 200 },
+    { id: 'priority', label: 'Priority', visible: true, sortable: true, minWidth: 120 },
+    { id: 'status', label: 'Status', visible: true, sortable: true, minWidth: 120 },
+    { id: 'workshopName', label: 'Workshop', visible: false, sortable: true, minWidth: 150 },
+    { id: 'phase', label: 'Phase', visible: true, sortable: true, minWidth: 120 },
+    { id: 'statusClient', label: 'Client Status', visible: false, sortable: true, minWidth: 150 },
+  ]);
+
+  // Add state for BC data
+  const [departmentList, setDepartmentList] = useState<BCFunctionalDepartment[]>([]);
+  const [areaList, setAreaList] = useState<FunctionalArea[]>([]);
+  const [filteredAreaList, setFilteredAreaList] = useState<FunctionalArea[]>([]);
+
   // Fetch requirements
   const fetchRequirements = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Build filter object
-      const filters: Record<string, string | number | boolean> = {};
-      if (search) filters.search = search;
-      if (selectedModule) filters.module_id = selectedModule;
-      if (selectedSubModule) filters.submodule_id = selectedSubModule;
-      if (selectedFunction) filters.function_id = selectedFunction;
-      if (selectedPriority) filters.priority_id = selectedPriority;
-      if (selectedStatus) filters.status_id = selectedStatus;
-      if (selectedFitGap) filters.fitgap_id = selectedFitGap;
-      if (selectedPhase) filters.phase = selectedPhase;
-      if (selectedInScope !== undefined) filters.in_scope = selectedInScope;
+      const filters = {
+        ...(selectedModule && { module_id: selectedModule }),
+        ...(selectedSubModule && { submodule_id: selectedSubModule }),
+        ...(selectedFunction && { function_id: selectedFunction }),
+        ...(selectedPriority && { priority_id: selectedPriority }),
+        ...(selectedStatus && { status_id: selectedStatus }),
+        ...(selectedFitGap && { fitgap_id: selectedFitGap }),
+        ...(selectedPhase && { phase: selectedPhase }),
+        ...(selectedInScope !== undefined && { in_scope: selectedInScope }),
+        ...(selectedDepartment && { business_central_functional_department: selectedDepartment }),
+        ...(selectedArea && { functional_area: selectedArea }),
+        ...(showTemplateOnly && { template_item: true }),
+        sort_field: sortField === 'id' ? 'req_id' : sortField,
+        sort_direction: sortDirection,
+      };
       
       const response = await getRequirements(page + 1, rowsPerPage, filters);
-      if (response && response.requirements) {
-        setRequirements(response.requirements);
+      if (response && response.pagination) {
+        setRequirements(response.requirements || []);
         setTotalCount(response.pagination.totalItems || 0);
       } else {
         setRequirements([]);
@@ -129,13 +182,13 @@ const RequirementsList: React.FC = () => {
       console.error('Error fetching requirements:', err);
       setRequirements([]);
       setTotalCount(0);
-      setError(err.response?.data?.message || 'Failed to load requirements');
+      setError(err.response?.data?.message || err.message || 'Failed to load requirements');
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, selectedModule, selectedSubModule, selectedFunction, selectedPriority, selectedStatus, selectedFitGap, selectedPhase, selectedInScope]);
+  }, [page, rowsPerPage, search, selectedModule, selectedSubModule, selectedFunction, selectedPriority, selectedStatus, selectedFitGap, selectedPhase, selectedInScope, selectedDepartment, selectedArea, showTemplateOnly, sortField, sortDirection]);
   
-  // Fetch filter options
+  // Update fetch filter options to include BC data
   const fetchFilterOptions = async () => {
     try {
       const [
@@ -145,6 +198,8 @@ const RequirementsList: React.FC = () => {
         prioritiesResponse,
         statusesResponse,
         fitGapResponse,
+        departmentsResponse,
+        areasResponse,
       ] = await Promise.all([
         modules.getAll(),
         subModules.getAll(),
@@ -152,6 +207,8 @@ const RequirementsList: React.FC = () => {
         priorities.getAll(),
         statuses.getAll(),
         fitGapStatuses.getAll(),
+        bcDataService.getDepartments(),
+        bcDataService.getFunctionalAreas(),
       ]);
       
       setModuleList(modulesResponse);
@@ -160,6 +217,8 @@ const RequirementsList: React.FC = () => {
       setPriorityList(prioritiesResponse);
       setStatusList(statusesResponse);
       setFitGapList(fitGapResponse);
+      setDepartmentList(departmentsResponse);
+      setAreaList(areasResponse);
     } catch (err: any) {
       console.error('Error fetching filter options:', err);
     }
@@ -187,6 +246,16 @@ const RequirementsList: React.FC = () => {
   const filteredFunctions = selectedSubModule
     ? functionList.filter(f => f.submodule_id === parseInt(selectedSubModule))
     : functionList;
+
+  // Update filtered areas when department changes
+  useEffect(() => {
+    if (selectedDepartment) {
+      const departmentId = parseInt(selectedDepartment);
+      setFilteredAreaList(areaList.filter(area => area.department_id === departmentId));
+    } else {
+      setFilteredAreaList(areaList);
+    }
+  }, [selectedDepartment, areaList]);
   
   const handleChangePage = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -212,6 +281,9 @@ const RequirementsList: React.FC = () => {
     setSelectedFitGap('');
     setSelectedPhase('');
     setSelectedInScope(undefined);
+    setSelectedDepartment('');
+    setSelectedArea('');
+    setShowTemplateOnly(false);
     setPage(0);
   };
   
@@ -331,6 +403,19 @@ const RequirementsList: React.FC = () => {
   const handleDeleteFilter = (id: string) => {
     deleteFilter(id);
     setSavedFilters(getSavedFilters());
+  };
+
+  // Column visibility toggle handler
+  const handleColumnToggle = (columnId: string) => {
+    setColumns(prev => prev.map(col => 
+      col.id === columnId ? { ...col, visible: !col.visible } : col
+    ));
+  };
+
+  // Sort handler
+  const handleSort = (columnId: string) => {
+    setSortField(columnId);
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
   if (loading && page === 0) {
@@ -464,38 +549,72 @@ const RequirementsList: React.FC = () => {
         </Alert>
       )}
       
+      {/* Column Configuration Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button
+          startIcon={<ViewColumnIcon />}
+          onClick={(e) => setColumnConfigAnchor(e.currentTarget)}
+        >
+          Configure Columns
+        </Button>
+      </Box>
+
+      {/* Column Configuration Menu */}
+      <Menu
+        anchorEl={columnConfigAnchor}
+        open={Boolean(columnConfigAnchor)}
+        onClose={() => setColumnConfigAnchor(null)}
+      >
+        {columns.map((column) => (
+          <MenuItem key={column.id} onClick={() => handleColumnToggle(column.id)}>
+            <ListItemIcon>
+              <Checkbox checked={column.visible} />
+            </ListItemIcon>
+            <ListItemText primary={column.label} />
+          </MenuItem>
+        ))}
+      </Menu>
+
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Filters
         </Typography>
-        <Grid container spacing={2} alignItems="center">
+        <Grid container spacing={2} alignItems="center" role="search">
           <Grid item xs={12} md={3}>
             <TextField
               fullWidth
+              id="search-input"
               variant="outlined"
-              label="Search"
+              label="Search Requirements"
               value={search}
               onChange={handleSearch}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <SearchIcon aria-hidden="true" />
                   </InputAdornment>
                 ),
+                'aria-label': 'Search requirements',
               }}
             />
           </Grid>
+
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Module</InputLabel>
+              <InputLabel id="module-filter-label">Module</InputLabel>
               <Select
+                labelId="module-filter-label"
+                id="module-filter"
                 value={selectedModule}
                 label="Module"
                 onChange={(e) => {
                   setSelectedModule(e.target.value);
                   setSelectedSubModule('');
                   setSelectedFunction('');
+                }}
+                inputProps={{
+                  'aria-label': 'Filter by module'
                 }}
               >
                 <MenuItem value="">All</MenuItem>
@@ -507,15 +626,21 @@ const RequirementsList: React.FC = () => {
               </Select>
             </FormControl>
           </Grid>
+
           <Grid item xs={12} md={3}>
             <FormControl fullWidth disabled={!selectedModule}>
-              <InputLabel>SubModule</InputLabel>
+              <InputLabel id="submodule-filter-label">SubModule</InputLabel>
               <Select
+                labelId="submodule-filter-label"
+                id="submodule-filter"
                 value={selectedSubModule}
                 label="SubModule"
                 onChange={(e) => {
                   setSelectedSubModule(e.target.value);
                   setSelectedFunction('');
+                }}
+                inputProps={{
+                  'aria-label': 'Filter by submodule'
                 }}
               >
                 <MenuItem value="">All</MenuItem>
@@ -529,11 +654,16 @@ const RequirementsList: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControl fullWidth disabled={!selectedSubModule}>
-              <InputLabel>Function</InputLabel>
+              <InputLabel id="function-filter-label">Function</InputLabel>
               <Select
+                labelId="function-filter-label"
+                id="function-filter"
                 value={selectedFunction}
                 label="Function"
                 onChange={(e) => setSelectedFunction(e.target.value)}
+                inputProps={{
+                  'aria-label': 'Filter by function'
+                }}
               >
                 <MenuItem value="">All</MenuItem>
                 {filteredFunctions.map((func) => (
@@ -546,11 +676,16 @@ const RequirementsList: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Priority</InputLabel>
+              <InputLabel id="priority-filter-label">Priority</InputLabel>
               <Select
+                labelId="priority-filter-label"
+                id="priority-filter"
                 value={selectedPriority}
                 label="Priority"
                 onChange={(e) => setSelectedPriority(e.target.value)}
+                inputProps={{
+                  'aria-label': 'Filter by priority'
+                }}
               >
                 <MenuItem value="">All</MenuItem>
                 {priorityList.map((priority) => (
@@ -563,11 +698,16 @@ const RequirementsList: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
+              <InputLabel id="status-filter-label">Status</InputLabel>
               <Select
+                labelId="status-filter-label"
+                id="status-filter"
                 value={selectedStatus}
                 label="Status"
                 onChange={(e) => setSelectedStatus(e.target.value)}
+                inputProps={{
+                  'aria-label': 'Filter by status'
+                }}
               >
                 <MenuItem value="">All</MenuItem>
                 {statusList.map((status) => (
@@ -580,11 +720,16 @@ const RequirementsList: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Fit/Gap</InputLabel>
+              <InputLabel id="fitgap-filter-label">Fit/Gap</InputLabel>
               <Select
+                labelId="fitgap-filter-label"
+                id="fitgap-filter"
                 value={selectedFitGap}
                 label="Fit/Gap"
                 onChange={(e) => setSelectedFitGap(e.target.value)}
+                inputProps={{
+                  'aria-label': 'Filter by fit/gap'
+                }}
               >
                 <MenuItem value="">All</MenuItem>
                 {fitGapList.map((fitGap) => (
@@ -597,11 +742,16 @@ const RequirementsList: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Phase</InputLabel>
+              <InputLabel id="phase-filter-label">Phase</InputLabel>
               <Select
+                labelId="phase-filter-label"
+                id="phase-filter"
                 value={selectedPhase}
                 label="Phase"
                 onChange={(e) => setSelectedPhase(e.target.value)}
+                inputProps={{
+                  'aria-label': 'Filter by phase'
+                }}
               >
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value="Initial">Initial</MenuItem>
@@ -611,17 +761,85 @@ const RequirementsList: React.FC = () => {
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
-              <InputLabel>In Scope</InputLabel>
+              <InputLabel id="inscope-filter-label">In Scope</InputLabel>
               <Select
+                labelId="inscope-filter-label"
+                id="inscope-filter"
                 value={selectedInScope === undefined ? '' : selectedInScope.toString()}
                 label="In Scope"
                 onChange={(e) => setSelectedInScope(e.target.value === '' ? undefined : e.target.value === 'true')}
+                inputProps={{
+                  'aria-label': 'Filter by in scope'
+                }}
               >
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value="true">Yes</MenuItem>
                 <MenuItem value="false">No</MenuItem>
               </Select>
             </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel id="department-filter-label">Department</InputLabel>
+              <Select
+                labelId="department-filter-label"
+                id="department-filter"
+                value={selectedDepartment}
+                label="Department"
+                onChange={(e) => {
+                  setSelectedDepartment(e.target.value);
+                  setSelectedArea('');
+                }}
+                inputProps={{
+                  'aria-label': 'Filter by department'
+                }}
+              >
+                <MenuItem value="">All</MenuItem>
+                {departmentList.map((dept) => (
+                  <MenuItem key={dept.id} value={dept.id.toString()}>
+                    {dept.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth disabled={!selectedDepartment}>
+              <InputLabel id="area-filter-label">Functional Area</InputLabel>
+              <Select
+                labelId="area-filter-label"
+                id="area-filter"
+                value={selectedArea}
+                label="Functional Area"
+                onChange={(e) => setSelectedArea(e.target.value)}
+                inputProps={{
+                  'aria-label': 'Filter by functional area'
+                }}
+              >
+                <MenuItem value="">All</MenuItem>
+                {filteredAreaList.map((area) => (
+                  <MenuItem key={area.id} value={area.id.toString()}>
+                    {area.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showTemplateOnly}
+                  onChange={(e) => setShowTemplateOnly(e.target.checked)}
+                  inputProps={{
+                    'aria-label': 'Show template items only'
+                  }}
+                />
+              }
+              label="Template Items Only"
+            />
           </Grid>
           <Grid item xs={12} md={12} sx={{ textAlign: 'right' }}>
             <Button variant="outlined" onClick={handleReset} sx={{ mr: 1 }}>
@@ -637,22 +855,32 @@ const RequirementsList: React.FC = () => {
           <Table sx={{ minWidth: 650 }} aria-label="requirements table">
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Title</TableCell>
-                <TableCell>Module</TableCell>
-                <TableCell>Function</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Fit/Gap</TableCell>
-                <TableCell>Phase</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                {columns
+                  .filter(col => col.visible)
+                  .map(column => (
+                    <TableCell
+                      key={column.id}
+                      style={{ minWidth: column.minWidth }}
+                      sortDirection={sortField === column.id ? sortDirection : false}
+                    >
+                      <TableSortLabel
+                        active={sortField === column.id}
+                        direction={sortField === column.id ? sortDirection : 'asc'}
+                        onClick={() => handleSort(column.id)}
+                        aria-label={`Sort by ${column.label}`}
+                      >
+                        {column.label}
+                      </TableSortLabel>
+                    </TableCell>
+                ))}
+                <TableCell align="right" aria-label="Actions">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    <CircularProgress size={30} />
+                  <TableCell colSpan={columns.filter(col => col.visible).length + 1} align="center">
+                    <CircularProgress size={30} sx={{ my: 3 }} aria-label="Loading requirements" />
                   </TableCell>
                 </TableRow>
               ) : requirements && requirements.length > 0 ? (
@@ -668,38 +896,16 @@ const RequirementsList: React.FC = () => {
                     }}
                     sx={{ cursor: 'pointer' }}
                     tabIndex={0}
+                    role="button"
+                    aria-label={`View requirement: ${req.title}`}
                   >
-                    <TableCell>{req.req_id}</TableCell>
-                    <TableCell>{req.title}</TableCell>
-                    <TableCell>
-                      {req.Function?.SubModule?.Module?.name || 'Unknown'}
-                    </TableCell>
-                    <TableCell>{req.Function?.name || 'Unknown'}</TableCell>
-                    <TableCell>
-                      {req.Priority?.name && (
-                        <StatusChip
-                          label={req.Priority.name}
-                          type="priority"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {req.Status?.name && (
-                        <StatusChip
-                          label={req.Status.name}
-                          type="status"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {req.FitGapStatus?.name && (
-                        <StatusChip
-                          label={req.FitGapStatus.name}
-                          type="fitgap"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>{req.phase}</TableCell>
+                    {columns
+                      .filter(col => col.visible)
+                      .map(column => (
+                        <TableCell key={column.id}>
+                          {renderCellContent(req, column.id)}
+                        </TableCell>
+                    ))}
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                       <Tooltip title="View">
                         <IconButton
@@ -738,8 +944,10 @@ const RequirementsList: React.FC = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    No requirements found
+                  <TableCell colSpan={columns.filter(col => col.visible).length + 1} align="center">
+                    <Typography variant="body1" sx={{ my: 3 }}>
+                      No requirements found
+                    </Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -747,17 +955,71 @@ const RequirementsList: React.FC = () => {
           </Table>
         </TableContainer>
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
           count={totalCount}
-          rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Requirements per page:"
+          labelDisplayedRows={({ from, to, count }) => 
+            `${from}-${to} of ${count} requirements`
+          }
         />
       </Paper>
+
+      {/* Export Menu */}
+      <Menu
+        id="export-menu"
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={handleExportClose}
+        aria-label="Export options"
+      >
+        <MenuItem onClick={() => handleExport('excel')} role="menuitem">Export to Excel</MenuItem>
+        <MenuItem onClick={() => handleExport('pdf')} role="menuitem">Export to PDF</MenuItem>
+      </Menu>
+
+      {/* Other menus and dialogs... */}
     </Box>
   );
+  
+  // Helper function to render cell content
+  function renderCellContent(req: Requirement, columnId: string) {
+    switch (columnId) {
+      case 'req_id':
+        return req.req_id;
+      case 'title':
+        return req.title;
+      case 'businessCentralDepartment':
+        return req.BCFunctionalDepartment?.name || '';
+      case 'functionalArea':
+        return req.FunctionalArea?.name || '';
+      case 'isTemplateItem':
+        return req.template_item ? 'Yes' : 'No';
+      case 'functionalConsultant':
+        return req.functional_consultant || '';
+      case 'requirementOwnerClient':
+        return req.requirement_owner_client || '';
+      case 'solutionOption':
+        return req.SolutionOption?.name || '';
+      case 'priority':
+        return req.Priority?.name ? <StatusChip label={req.Priority.name} type="priority" /> : '';
+      case 'status':
+        return req.Status?.name ? <StatusChip label={req.Status.name} type="status" /> : '';
+      case 'workshopName':
+        return req.workshop_name || '';
+      case 'phase':
+        return req.phase || '';
+      case 'statusClient':
+        return req.status_client || '';
+      default:
+        const value = req[columnId as keyof Requirement];
+        return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' 
+          ? value 
+          : '';
+    }
+  }
 };
 
 export default RequirementsList;

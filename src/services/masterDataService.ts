@@ -1,5 +1,5 @@
 import api from './api';
-import { Module, SubModule, Function, Priority, Status, FitGapStatus, SolutionOption } from '../types';
+import { Module, SubModule, Function, Priority, Status, FitGapStatus, SolutionOption, BCFunctionalDepartment, FunctionalArea } from '../types';
 
 // Generic function to fetch all entities of a specific type
 const getAll = async <T>(endpoint: string): Promise<T[]> => {
@@ -113,4 +113,32 @@ export const solutionOptions = {
   create: (data: Partial<SolutionOption>) => create<SolutionOption>('/master-data/solution-options', data),
   update: (id: number, data: Partial<SolutionOption>) => update<SolutionOption>('/master-data/solution-options', id, data),
   delete: (id: number) => deleteEntity('/master-data/solution-options', id)
+};
+
+// BC RTM endpoints
+export const bcrtm = {
+  getDepartments: async (): Promise<{ departments: BCFunctionalDepartment[] }> => {
+    const response = await api.get('/api/departments');
+    return response.data;
+  },
+  getFunctionalAreas: async (params?: { department_id?: number }): Promise<{ areas: FunctionalArea[] }> => {
+    const response = await api.get('/api/functional-areas', { params });
+    return response.data;
+  },
+  getSolutionOptions: async (): Promise<{ options: SolutionOption[] }> => {
+    const response = await api.get('/api/solution-options');
+    return response.data;
+  },
+  createDepartment: async (data: { name: string; description: string }) => {
+    const response = await api.post('/bc-data/departments', data);
+    return response.data;
+  },
+  updateDepartment: async (id: number, data: { name: string; description: string }) => {
+    const response = await api.put(`/bc-data/departments/${id}`, data);
+    return response.data;
+  },
+  deleteDepartment: async (id: number) => {
+    const response = await api.delete(`/bc-data/departments/${id}`);
+    return response.data;
+  },
 };

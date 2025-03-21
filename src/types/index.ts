@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 // Auth Types
 export interface User {
   user_id: number;
@@ -77,6 +79,19 @@ export interface SolutionOption {
   updated_at: string;
 }
 
+export interface BCFunctionalDepartment {
+  description: ReactNode;
+  id: number;
+  name: string;
+}
+
+export interface FunctionalArea {
+  id: number;
+  department_id: number;
+  name: string;
+  BCFunctionalDepartment?: BCFunctionalDepartment;
+}
+
 export interface Requirement {
   req_id: number;
   title: string;
@@ -90,6 +105,24 @@ export interface Requirement {
   option_id: number | null;
   fitgap_id: number | null;
   comments: string | null;
+  // New BC RTM fields
+  business_central_functional_department: number | null;
+  functional_area: number | null;
+  template_item: boolean;
+  functional_consultant: string | null;
+  requirement_owner_client: string | null;
+  solution_option_1: string | null;
+  solution_option_1_time_estimate: number | null;
+  solution_option_2: string | null;
+  solution_option_2_time_estimate: number | null;
+  solution_option_3: string | null;
+  solution_option_3_time_estimate: number | null;
+  workshop_name: string | null;
+  phase_comments: string | null;
+  status_client: string | null;
+  client_comments: string | null;
+  client_preferences: string | null;
+  // Timestamps and relations
   created_at: string;
   updated_at: string;
   requirement_creator?: User;
@@ -100,6 +133,8 @@ export interface Requirement {
   Status?: Status;
   FitGapStatus?: FitGapStatus;
   SolutionOption?: SolutionOption;
+  BCFunctionalDepartment?: BCFunctionalDepartment;
+  FunctionalArea?: FunctionalArea;
 }
 
 export interface ChangeLog {
@@ -200,6 +235,20 @@ export interface StatsResponse {
     'Function->SubModule->Module.module_id': number;
     'Function->SubModule->Module.name': string;
   }>;
+  departmentStats: Array<{
+    count: number;
+    'BCFunctionalDepartment.id': number;
+    'BCFunctionalDepartment.name': string;
+  }>;
+  solutionOptionStats: Array<{
+    count: number;
+    'SolutionOption.id': number;
+    'SolutionOption.name': string;
+  }>;
+  clientStatusStats: Array<{
+    status: string;
+    count: number;
+  }>;
   recentChanges: ChangeLog[];
 }
 
@@ -237,4 +286,21 @@ export interface RequirementForm {
   option_id: number | null;
   fitgap_id: number | null;
   comments: string;
+  // New BC RTM fields
+  business_central_functional_department: number | null;
+  functional_area: number | null;
+  template_item: boolean;
+  functional_consultant: string;
+  requirement_owner_client: string;
+  solution_option_1: string;
+  solution_option_1_time_estimate: number | null;
+  solution_option_2: string;
+  solution_option_2_time_estimate: number | null;
+  solution_option_3: string;
+  solution_option_3_time_estimate: number | null;
+  workshop_name: string;
+  phase_comments: string;
+  status_client: string;
+  client_comments: string;
+  client_preferences: string;
 }

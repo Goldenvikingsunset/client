@@ -36,6 +36,8 @@ import {
   Status, 
   FitGapStatus,
   SolutionOption,
+  BCFunctionalDepartment,
+  FunctionalArea,
 } from '../../types';
 import { 
   modules,
@@ -45,6 +47,7 @@ import {
   statuses,
   fitGapStatuses,
   solutionOptions,
+  bcrtm,
 } from '../../services/masterDataService';
 import { StatusChip } from '../shared/StatusChip';
 
@@ -56,8 +59,28 @@ const validationSchema = Yup.object({
   priority_id: Yup.number().required('Priority is required'),
   status_id: Yup.number().required('Status is required'),
   fitgap_id: Yup.number().required('Fit/Gap status is required'),
-  solution_option_id: Yup.number().nullable(),
   phase: Yup.string().required('Phase is required'),
+  // New BC RTM validations
+  business_central_functional_department: Yup.number().required('BC Department is required'),
+  functional_area: Yup.number()
+    .required('Functional Area is required')
+    .when('business_central_functional_department', {
+      is: (val: number) => val && val > 0,
+      then: (schema) => schema.required('Functional Area is required for selected department')
+    }),
+  functional_consultant: Yup.string().required('Functional Consultant is required'),
+  requirement_owner_client: Yup.string().required('Client Owner is required'),
+  solution_option_1: Yup.string().nullable(),
+  solution_option_1_time_estimate: Yup.number().positive('Must be a positive number').nullable(),
+  solution_option_2: Yup.string().nullable(),
+  solution_option_2_time_estimate: Yup.number().positive('Must be a positive number').nullable(),
+  solution_option_3: Yup.string().nullable(),
+  solution_option_3_time_estimate: Yup.number().positive('Must be a positive number').nullable(),
+  workshop_name: Yup.string().nullable(),
+  phase_comments: Yup.string().nullable(),
+  status_client: Yup.string().nullable(),
+  client_comments: Yup.string().nullable(),
+  client_preferences: Yup.string().nullable(),
 });
 
 const RequirementForm: React.FC = () => {
@@ -81,8 +104,13 @@ const RequirementForm: React.FC = () => {
   // Selected values for the cascading dropdowns
   const [selectedModule, setSelectedModule] = useState<number | null>(null);
   const [selectedSubModule, setSelectedSubModule] = useState<number | null>(null);
+
+  // Add new state for BC RTM data
+  const [departments, setDepartments] = useState<BCFunctionalDepartment[]>([]);
+  const [functionalAreas, setFunctionalAreas] = useState<FunctionalArea[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
   
-  // Initialize form with empty values
+  // Initialize form with updated values
   const formik = useFormik({
     initialValues: {
       title: '',
@@ -92,13 +120,28 @@ const RequirementForm: React.FC = () => {
       priority_id: 0,
       status_id: 0,
       fitgap_id: 0,
-      solution_option_id: null as number | null,
       phase: 'Initial',
       in_scope: true,
       comments: '',
-      // Additional fields not in the RequirementForm type
-      solution_description: '',
-      additional_notes: '',
+      // Fix: Add option_id to initial values
+      option_id: null as number | null,
+      // BC RTM fields
+      business_central_functional_department: null as number | null,
+      functional_area: null as number | null,
+      template_item: false,
+      functional_consultant: '',
+      requirement_owner_client: '',
+      solution_option_1: '',
+      solution_option_1_time_estimate: null as number | null,
+      solution_option_2: '',
+      solution_option_2_time_estimate: null as number | null,
+      solution_option_3: '',
+      solution_option_3_time_estimate: null as number | null,
+      workshop_name: '',
+      phase_comments: '',
+      status_client: '',
+      client_comments: '',
+      client_preferences: '',
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -108,17 +151,13 @@ const RequirementForm: React.FC = () => {
         
         // Convert form values to RequirementForm type
         const requirementData: RequirementFormType = {
-          title: values.title,
-          description: values.description || '',
-          details: values.details || '',
-          function_id: values.function_id,
-          priority_id: values.priority_id,
-          status_id: values.status_id,
-          fitgap_id: values.fitgap_id,
-          phase: values.phase,
-          in_scope: values.in_scope,
-          option_id: values.solution_option_id,
-          comments: values.comments || values.solution_description || ''
+          ...values,
+          option_id: values.option_id || null,
+          business_central_functional_department: values.business_central_functional_department || null,
+          functional_area: values.functional_area || null,
+          solution_option_1_time_estimate: values.solution_option_1_time_estimate || null,
+          solution_option_2_time_estimate: values.solution_option_2_time_estimate || null,
+          solution_option_3_time_estimate: values.solution_option_3_time_estimate || null,
         };
         
         if (isEditMode && id) {
@@ -183,6 +222,21 @@ const RequirementForm: React.FC = () => {
       setError('Failed to load form data. Please try again.');
     }
   };
+
+  // Add fetch for BC RTM data
+  const fetchBCRTMData = async () => {
+    try {
+      const [deptResponse, areasResponse] = await Promise.all([
+        bcrtm.getDepartments(),
+        bcrtm.getFunctionalAreas(),
+      ]);
+      setDepartments(deptResponse.departments);
+      setFunctionalAreas(areasResponse.areas);
+    } catch (err: any) {
+      console.error('Error fetching BC RTM data:', err);
+      setError('Failed to load BC RTM data');
+    }
+  };
   
   // Move fetchRequirement inside useCallback
   const fetchRequirement = useCallback(async () => {
@@ -201,12 +255,27 @@ const RequirementForm: React.FC = () => {
         priority_id: requirement.priority_id || 0,
         status_id: requirement.status_id || 0,
         fitgap_id: requirement.fitgap_id || 0,
-        solution_option_id: requirement.option_id || null,
-        solution_description: requirement.comments || '',
+        option_id: requirement.option_id || null,
         phase: requirement.phase || 'Initial',
         in_scope: requirement.in_scope !== undefined ? requirement.in_scope : true,
         comments: requirement.comments || '',
-        additional_notes: '',
+        // BC RTM fields
+        business_central_functional_department: requirement.business_central_functional_department || null,
+        functional_area: requirement.functional_area || null,
+        template_item: requirement.template_item || false,
+        functional_consultant: requirement.functional_consultant || '',
+        requirement_owner_client: requirement.requirement_owner_client || '',
+        solution_option_1: requirement.solution_option_1 || '',
+        solution_option_1_time_estimate: requirement.solution_option_1_time_estimate || null,
+        solution_option_2: requirement.solution_option_2 || '',
+        solution_option_2_time_estimate: requirement.solution_option_2_time_estimate || null,
+        solution_option_3: requirement.solution_option_3 || '',
+        solution_option_3_time_estimate: requirement.solution_option_3_time_estimate || null,
+        workshop_name: requirement.workshop_name || '',
+        phase_comments: requirement.phase_comments || '',
+        status_client: requirement.status_client || '',
+        client_comments: requirement.client_comments || '',
+        client_preferences: requirement.client_preferences || '',
       });
       
       // Set the selected module and submodule if function is available
@@ -231,7 +300,7 @@ const RequirementForm: React.FC = () => {
   
   // Initial data load
   useEffect(() => {
-    fetchMasterData();
+    Promise.all([fetchMasterData(), fetchBCRTMData()]);
   }, []);
   
   // Load requirement data once master data is loaded and we're in edit mode
@@ -277,6 +346,20 @@ const RequirementForm: React.FC = () => {
   const handleSubModuleChange = (submoduleId: number) => {
     setSelectedSubModule(submoduleId);
     formik.setFieldValue('function_id', 0);
+  };
+
+  // Add handler for department change
+  const handleDepartmentChange = async (departmentId: number) => {
+    setSelectedDepartment(departmentId);
+    formik.setFieldValue('business_central_functional_department', departmentId);
+    formik.setFieldValue('functional_area', null);
+    
+    try {
+      const response = await bcrtm.getFunctionalAreas({ department_id: departmentId });
+      setFunctionalAreas(response.areas);
+    } catch (err) {
+      console.error('Error fetching functional areas:', err);
+    }
   };
   
   // Handle snackbar close
@@ -338,6 +421,10 @@ const RequirementForm: React.FC = () => {
                       onBlur={formik.handleBlur}
                       error={formik.touched.title && Boolean(formik.errors.title)}
                       helperText={formik.touched.title && formik.errors.title}
+                      inputProps={{
+                        'aria-label': 'Requirement title',
+                        'aria-required': 'true'
+                      }}
                     />
                   </Grid>
                   <Grid item xs={12}>
@@ -354,6 +441,10 @@ const RequirementForm: React.FC = () => {
                       onBlur={formik.handleBlur}
                       error={formik.touched.description && Boolean(formik.errors.description)}
                       helperText={formik.touched.description && formik.errors.description}
+                      inputProps={{
+                        'aria-label': 'Requirement description',
+                        'aria-required': 'true'
+                      }}
                     />
                   </Grid>
                 </Grid>
@@ -372,11 +463,16 @@ const RequirementForm: React.FC = () => {
                       fullWidth
                       error={Boolean(formik.touched.function_id && formik.errors.function_id)}
                     >
-                      <InputLabel>Module *</InputLabel>
+                      <InputLabel id="module-label">Module *</InputLabel>
                       <Select
+                        labelId="module-label"
+                        id="module"
                         value={selectedModule || ''}
                         label="Module *"
                         onChange={(e) => handleModuleChange(e.target.value as number)}
+                        inputProps={{
+                          'aria-label': 'Select module'
+                        }}
                       >
                         <MenuItem value="">Select Module</MenuItem>
                         {moduleList.map((module) => (
@@ -397,11 +493,16 @@ const RequirementForm: React.FC = () => {
                       disabled={!selectedModule}
                       error={Boolean(formik.touched.function_id && formik.errors.function_id)}
                     >
-                      <InputLabel>SubModule *</InputLabel>
+                      <InputLabel id="submodule-label">SubModule *</InputLabel>
                       <Select
+                        labelId="submodule-label"
+                        id="submodule"
                         value={selectedSubModule || ''}
                         label="SubModule *"
                         onChange={(e) => handleSubModuleChange(e.target.value as number)}
+                        inputProps={{
+                          'aria-label': 'Select submodule'
+                        }}
                       >
                         <MenuItem value="">Select SubModule</MenuItem>
                         {filteredSubModules.map((subModule) => (
@@ -419,14 +520,18 @@ const RequirementForm: React.FC = () => {
                       disabled={!selectedSubModule}
                       error={Boolean(formik.touched.function_id && formik.errors.function_id)}
                     >
-                      <InputLabel>Function *</InputLabel>
+                      <InputLabel id="function-label">Function *</InputLabel>
                       <Select
+                        labelId="function-label"
                         id="function_id"
                         name="function_id"
                         value={formik.values.function_id || ''}
                         label="Function *"
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select function'
+                        }}
                       >
                         <MenuItem value="">Select Function</MenuItem>
                         {filteredFunctions.map((func) => (
@@ -453,14 +558,18 @@ const RequirementForm: React.FC = () => {
                       fullWidth 
                       error={Boolean(formik.touched.priority_id && formik.errors.priority_id)}
                     >
-                      <InputLabel>Priority *</InputLabel>
+                      <InputLabel id="priority-label">Priority *</InputLabel>
                       <Select
+                        labelId="priority-label"
                         id="priority_id"
                         name="priority_id"
                         value={formik.values.priority_id || ''}
                         label="Priority *"
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select priority'
+                        }}
                       >
                         <MenuItem value="">Select Priority</MenuItem>
                         {priorityList.map((priority) => (
@@ -482,14 +591,18 @@ const RequirementForm: React.FC = () => {
                       fullWidth 
                       error={Boolean(formik.touched.status_id && formik.errors.status_id)}
                     >
-                      <InputLabel>Status *</InputLabel>
+                      <InputLabel id="status-label">Status *</InputLabel>
                       <Select
+                        labelId="status-label"
                         id="status_id"
                         name="status_id"
                         value={formik.values.status_id || ''}
                         label="Status *"
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select status'
+                        }}
                       >
                         <MenuItem value="">Select Status</MenuItem>
                         {statusList.map((status) => (
@@ -508,8 +621,9 @@ const RequirementForm: React.FC = () => {
 
                   <Grid item xs={12} md={4}>
                     <FormControl fullWidth>
-                      <InputLabel>Phase *</InputLabel>
+                      <InputLabel id="phase-label">Phase *</InputLabel>
                       <Select
+                        labelId="phase-label"
                         id="phase"
                         name="phase"
                         value={formik.values.phase || ''}
@@ -517,6 +631,9 @@ const RequirementForm: React.FC = () => {
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
                         error={Boolean(formik.touched.phase && formik.errors.phase)}
+                        inputProps={{
+                          'aria-label': 'Select phase'
+                        }}
                       >
                         <MenuItem value="">Select Phase</MenuItem>
                         <MenuItem value="Initial">Initial</MenuItem>
@@ -536,6 +653,9 @@ const RequirementForm: React.FC = () => {
                           name="in_scope"
                           checked={formik.values.in_scope}
                           onChange={formik.handleChange}
+                          inputProps={{
+                            'aria-label': 'In scope toggle'
+                          }}
                         />
                       }
                       label="In Scope"
@@ -557,14 +677,18 @@ const RequirementForm: React.FC = () => {
                       fullWidth
                       error={Boolean(formik.touched.fitgap_id && formik.errors.fitgap_id)}
                     >
-                      <InputLabel>Fit/Gap *</InputLabel>
+                      <InputLabel id="fitgap-label">Fit/Gap *</InputLabel>
                       <Select
+                        labelId="fitgap-label"
                         id="fitgap_id"
                         name="fitgap_id"
                         value={formik.values.fitgap_id || ''}
                         label="Fit/Gap *"
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select fit/gap'
+                        }}
                       >
                         <MenuItem value="">Select Fit/Gap</MenuItem>
                         {fitGapList.map((fitGap) => (
@@ -583,14 +707,18 @@ const RequirementForm: React.FC = () => {
 
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth>
-                      <InputLabel>Solution Option</InputLabel>
+                      <InputLabel id="solution-option-label">Solution Option</InputLabel>
                       <Select
+                        labelId="solution-option-label"
                         id="option_id"
                         name="option_id"
-                        value={formik.values.solution_option_id || ''}
+                        value={formik.values.option_id || ''}
                         label="Solution Option"
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select solution option'
+                        }}
                       >
                         <MenuItem value="">None</MenuItem>
                         {solutionOptionList.map((option) => (
@@ -613,6 +741,9 @@ const RequirementForm: React.FC = () => {
                       value={formik.values.comments}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
+                      inputProps={{
+                        'aria-label': 'Solution description'
+                      }}
                     />
                   </Grid>
                 </Grid>
@@ -637,6 +768,371 @@ const RequirementForm: React.FC = () => {
                       value={formik.values.details}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
+                      inputProps={{
+                        'aria-label': 'Additional details'
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
+            </Grid>
+
+            {/* Business Central Classification */}
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                  Business Central Classification
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <FormControl 
+                      fullWidth
+                      error={Boolean(formik.touched.business_central_functional_department && formik.errors.business_central_functional_department)}
+                    >
+                      <InputLabel id="bc-department-label">BC Department *</InputLabel>
+                      <Select
+                        labelId="bc-department-label"
+                        id="business_central_functional_department"
+                        name="business_central_functional_department"
+                        value={formik.values.business_central_functional_department || ''}
+                        label="BC Department *"
+                        onChange={(e) => handleDepartmentChange(e.target.value as number)}
+                        onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select BC department'
+                        }}
+                      >
+                        <MenuItem value="">Select Department</MenuItem>
+                        {departments.map((dept) => (
+                          <MenuItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {formik.touched.business_central_functional_department && formik.errors.business_central_functional_department && (
+                        <FormHelperText>{formik.errors.business_central_functional_department as string}</FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <FormControl 
+                      fullWidth
+                      disabled={!formik.values.business_central_functional_department}
+                      error={Boolean(formik.touched.functional_area && formik.errors.functional_area)}
+                    >
+                      <InputLabel id="functional-area-label">Functional Area *</InputLabel>
+                      <Select
+                        labelId="functional-area-label"
+                        id="functional_area"
+                        name="functional_area"
+                        value={formik.values.functional_area || ''}
+                        label="Functional Area *"
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select functional area'
+                        }}
+                      >
+                        <MenuItem value="">Select Area</MenuItem>
+                        {functionalAreas.map((area) => (
+                          <MenuItem key={area.id} value={area.id}>
+                            {area.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {formik.touched.functional_area && formik.errors.functional_area && (
+                        <FormHelperText>{formik.errors.functional_area as string}</FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          id="template_item"
+                          name="template_item"
+                          checked={formik.values.template_item}
+                          onChange={formik.handleChange}
+                          inputProps={{
+                            'aria-label': 'Template item toggle'
+                          }}
+                        />
+                      }
+                      label="Template Item"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      id="functional_consultant"
+                      name="functional_consultant"
+                      label="Functional Consultant *"
+                      value={formik.values.functional_consultant}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={formik.touched.functional_consultant && Boolean(formik.errors.functional_consultant)}
+                      helperText={formik.touched.functional_consultant && formik.errors.functional_consultant}
+                      inputProps={{
+                        'aria-label': 'Functional consultant'
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      id="requirement_owner_client"
+                      name="requirement_owner_client"
+                      label="Client Owner *"
+                      value={formik.values.requirement_owner_client}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={formik.touched.requirement_owner_client && Boolean(formik.errors.requirement_owner_client)}
+                      helperText={formik.touched.requirement_owner_client && formik.errors.requirement_owner_client}
+                      inputProps={{
+                        'aria-label': 'Client owner'
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="workshop_name"
+                      name="workshop_name"
+                      label="Workshop Name"
+                      value={formik.values.workshop_name}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      inputProps={{
+                        'aria-label': 'Workshop name'
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
+            </Grid>
+
+            {/* Solution Options */}
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                  Solution Options
+                </Typography>
+
+                {/* Option 1 */}
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="subtitle1" gutterBottom color="primary">
+                    Option 1
+                  </Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        id="solution_option_1"
+                        name="solution_option_1"
+                        label="Solution Description"
+                        multiline
+                        rows={3}
+                        value={formik.values.solution_option_1}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Solution option 1 description'
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        id="solution_option_1_time_estimate"
+                        name="solution_option_1_time_estimate"
+                        label="Time Estimate (hours)"
+                        value={formik.values.solution_option_1_time_estimate || ''}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        error={formik.touched.solution_option_1_time_estimate && Boolean(formik.errors.solution_option_1_time_estimate)}
+                        helperText={formik.touched.solution_option_1_time_estimate && formik.errors.solution_option_1_time_estimate}
+                        InputProps={{ inputProps: { min: 0, step: 0.5 } }}
+                        inputProps={{
+                          'aria-label': 'Solution option 1 time estimate'
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                {/* Option 2 */}
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="subtitle1" gutterBottom color="primary">
+                    Option 2
+                  </Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        id="solution_option_2"
+                        name="solution_option_2"
+                        label="Solution Description"
+                        multiline
+                        rows={3}
+                        value={formik.values.solution_option_2}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Solution option 2 description'
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        id="solution_option_2_time_estimate"
+                        name="solution_option_2_time_estimate"
+                        label="Time Estimate (hours)"
+                        value={formik.values.solution_option_2_time_estimate || ''}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        error={formik.touched.solution_option_2_time_estimate && Boolean(formik.errors.solution_option_2_time_estimate)}
+                        helperText={formik.touched.solution_option_2_time_estimate && formik.errors.solution_option_2_time_estimate}
+                        InputProps={{ inputProps: { min: 0, step: 0.5 } }}
+                        inputProps={{
+                          'aria-label': 'Solution option 2 time estimate'
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                {/* Option 3 */}
+                <Box>
+                  <Typography variant="subtitle1" gutterBottom color="primary">
+                    Option 3
+                  </Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        id="solution_option_3"
+                        name="solution_option_3"
+                        label="Solution Description"
+                        multiline
+                        rows={3}
+                        value={formik.values.solution_option_3}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Solution option 3 description'
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        id="solution_option_3_time_estimate"
+                        name="solution_option_3_time_estimate"
+                        label="Time Estimate (hours)"
+                        value={formik.values.solution_option_3_time_estimate || ''}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        error={formik.touched.solution_option_3_time_estimate && Boolean(formik.errors.solution_option_3_time_estimate)}
+                        helperText={formik.touched.solution_option_3_time_estimate && formik.errors.solution_option_3_time_estimate}
+                        InputProps={{ inputProps: { min: 0, step: 0.5 } }}
+                        inputProps={{
+                          'aria-label': 'Solution option 3 time estimate'
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+              </Paper>
+            </Grid>
+
+            {/* Client Assessment */}
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                  Client Assessment
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel id="client-status-label">Client Status</InputLabel>
+                      <Select
+                        labelId="client-status-label"
+                        id="status_client"
+                        name="status_client"
+                        value={formik.values.status_client || ''}
+                        label="Client Status"
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        inputProps={{
+                          'aria-label': 'Select client status'
+                        }}
+                      >
+                        <MenuItem value="">Select Status</MenuItem>
+                        <MenuItem value="Approved">Approved</MenuItem>
+                        <MenuItem value="In Review">In Review</MenuItem>
+                        <MenuItem value="Needs Discussion">Needs Discussion</MenuItem>
+                        <MenuItem value="Rejected">Rejected</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="client_comments"
+                      name="client_comments"
+                      label="Client Comments"
+                      multiline
+                      rows={3}
+                      value={formik.values.client_comments}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      inputProps={{
+                        'aria-label': 'Client comments'
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="client_preferences"
+                      name="client_preferences"
+                      label="Client Preferences"
+                      multiline
+                      rows={3}
+                      value={formik.values.client_preferences}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      inputProps={{
+                        'aria-label': 'Client preferences'
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="phase_comments"
+                      name="phase_comments"
+                      label="Phase Comments"
+                      multiline
+                      rows={3}
+                      value={formik.values.phase_comments}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      inputProps={{
+                        'aria-label': 'Phase comments'
+                      }}
                     />
                   </Grid>
                 </Grid>

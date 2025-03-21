@@ -14,7 +14,14 @@ export const getRequirements = async (
   filters: Record<string, string | boolean | number> = {}
 ): Promise<RequirementsResponse> => {
   const params = { page, limit, ...filters };
-  const response = await api.get<RequirementsResponse>('/requirements', { params });
+  const response = await api.get<RequirementsResponse>('/requirements', { 
+    params,
+    headers: {
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  });
   return response.data;
 };
 
@@ -60,16 +67,13 @@ export const bulkImportRequirements = async (requirements: RequirementForm[]): P
 };
 
 // Get requirement statistics for dashboard
-export const getRequirementStats = async (): Promise<StatsResponse> => {
+export const getRequirementStats = async () => {
   try {
     const response = await api.get<StatsResponse>('/requirements/stats');
     return response.data;
-  } catch (error: any) {
-    console.error('Error fetching stats:', {
-      message: error.message,
-      response: error.response?.data
-    });
-    throw error;
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    throw error; // Let the component handle the error
   }
 };
 
