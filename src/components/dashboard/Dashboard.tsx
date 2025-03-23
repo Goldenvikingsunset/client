@@ -104,9 +104,20 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       try {
         const stats = await getRequirementStats();
+        // Enhanced debugging to identify issues with data
+        console.log("Dashboard data received:", {
+          totalRequirements: stats.totalRequirements,
+          moduleStats: stats.moduleStats,
+          fitGapStats: stats.fitGapStats,
+          priorityStats: stats.priorityStats,
+          recentChanges: stats.recentChanges?.length || 0,
+          clientStatusStats: stats.clientStatusStats
+        });
         setStats(stats);
-      } catch (error) {
+        setError(null);
+      } catch (error: any) {
         console.error('Dashboard error:', error);
+        setError(error?.response?.data?.message || 'Failed to load dashboard data');
         // Set default empty values instead of leaving state undefined
         setStats(null);
       } finally {
@@ -131,7 +142,7 @@ const Dashboard: React.FC = () => {
         <Alert 
           severity="error" 
           action={
-            <Button color="inherit" size="small" onClick={() => setRetryCount(0)}>
+            <Button color="inherit" size="small" onClick={() => setRetryCount(prev => prev + 1)}>
               Retry
             </Button>
           }
@@ -150,36 +161,74 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Prepare data for charts
-  const moduleChartData = stats?.moduleStats?.map((stat) => ({
-    name: stat['Function->SubModule->Module.name'] || 'Unknown',
-    value: stat.count,
-    percentage: ((stat.count / (stats?.totalRequirements || 1)) * 100).toFixed(1)
-  })) || [];
+  // Enhanced data preparation for charts with better error handling
+  const moduleChartData = stats?.moduleStats?.map((stat: any) => {
+    // Extract the module name with fallbacks
+    const moduleName = 
+      stat['Function.SubModule.Module.name'] || // Try the direct column reference
+      stat['Function->SubModule->Module.name'] || // Try the arrow notation
+      stat['name'] || // Try the simple 'name' property
+      (stat['Function.SubModule.Module.module_id'] ? 
+        `Module ${stat['Function.SubModule.Module.module_id']}` : 
+        (stat['Function->SubModule->Module.module_id'] ? 
+          `Module ${stat['Function->SubModule->Module.module_id']}` : 'Unknown'));
+    
+    return {
+      name: moduleName,
+      value: Number(stat.count) || 0,
+      percentage: ((Number(stat.count) / (stats?.totalRequirements || 1)) * 100).toFixed(1)
+    };
+  }) || [];
 
-  const priorityChartData = stats?.priorityStats?.map((stat) => ({
-    name: stat['Priority.name'] || 'Unknown',
-    value: stat.count,
-    percentage: ((stat.count / (stats?.totalRequirements || 1)) * 100).toFixed(1)
-  })) || [];
+  const priorityChartData = stats?.priorityStats?.map((stat: any) => {
+    // Extract the priority name with fallbacks
+    const priorityName = 
+      stat['Priority.name'] || 
+      stat['name'] ||
+      (stat['Priority.priority_id'] ? 
+        `Priority ${stat['Priority.priority_id']}` : 
+        (stat['priority_id'] ? `Priority ${stat['priority_id']}` : 'Unknown'));
+    
+    return {
+      name: priorityName,
+      value: Number(stat.count) || 0,
+      percentage: ((Number(stat.count) / (stats?.totalRequirements || 1)) * 100).toFixed(1)
+    };
+  }) || [];
 
-  const fitGapChartData = stats?.fitGapStats?.map((stat) => ({
-    name: stat['FitGapStatus.name'] || 'Unknown',
-    value: stat.count,
-    percentage: ((stat.count / (stats?.totalRequirements || 1)) * 100).toFixed(1)
-  })).filter(item => item.name !== 'Unknown') || [];
+  // Make sure fitGapChartData only includes items with valid names
+  const fitGapChartData = stats?.fitGapStats?.map((stat: any) => {
+    // Extract the fitgap name with fallbacks
+    const fitGapName = 
+      stat['FitGapStatus.name'] || 
+      stat['name'] ||
+      (stat['FitGapStatus.fitgap_id'] ? 
+        `Fit/Gap ${stat['FitGapStatus.fitgap_id']}` : 
+        (stat['fitgap_id'] ? `Fit/Gap ${stat['fitgap_id']}` : 'Unknown'));
+    
+    return {
+      name: fitGapName,
+      value: Number(stat.count) || 0,
+      percentage: ((Number(stat.count) / (stats?.totalRequirements || 1)) * 100).toFixed(1)
+    };
+  }).filter(item => item.name && item.name !== 'Unknown' && item.value > 0) || [];
 
   const clientStatusData = {
-    approved: stats.clientStatusStats?.find(s => s.status === 'Approved')?.count || 0,
-    inReview: stats.clientStatusStats?.find(s => s.status === 'In Review')?.count || 0,
-    needsDiscussion: stats.clientStatusStats?.find(s => s.status === 'Needs Discussion')?.count || 0,
-    rejected: stats.clientStatusStats?.find(s => s.status === 'Rejected')?.count || 0,
+    approved: Number(stats.clientStatusStats?.find(s => s.status === 'Approved')?.count) || 0,
+    inReview: Number(stats.clientStatusStats?.find(s => s.status === 'In Review')?.count) || 0,
+    needsDiscussion: Number(stats.clientStatusStats?.find(s => s.status === 'Needs Discussion')?.count) || 0,
+    rejected: Number(stats.clientStatusStats?.find(s => s.status === 'Rejected')?.count) || 0,
   };
 
   const getCellColor = (entry: ChartData, colorType: keyof StatsColors): string => {
     const colors = COLORS[colorType];
     return colors[entry.name] || colors['Default'];
   };
+
+  // Check if there's data to display
+  const hasModuleData = moduleChartData.length > 0;
+  const hasFitGapData = fitGapChartData.length > 0;
+  const hasPriorityData = priorityChartData.length > 0;
 
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
@@ -214,30 +263,36 @@ const Dashboard: React.FC = () => {
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 Priority Distribution
               </Typography>
-              <Box sx={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={priorityChartData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percentage }) => `${name}: ${percentage}%`}
-                    >
-                      {priorityChartData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={getCellColor(entry, 'priority')} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
+              {hasPriorityData ? (
+                <Box sx={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={priorityChartData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, percentage }) => `${name}: ${percentage}%`}
+                      >
+                        {priorityChartData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={getCellColor(entry, 'priority')} 
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+              ) : (
+                <Box sx={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="body1" color="text.secondary">No priority data available</Typography>
+                </Box>
+              )}
             </Paper>
           </Grid>
 
@@ -246,30 +301,36 @@ const Dashboard: React.FC = () => {
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 Fit/Gap Analysis
               </Typography>
-              <Box sx={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={fitGapChartData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, percentage }) => `${name}: ${percentage}%`}
-                    >
-                      {fitGapChartData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={getCellColor(entry, 'fitgap')} 
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
+              {hasFitGapData ? (
+                <Box sx={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={fitGapChartData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, percentage }) => `${name}: ${percentage}%`}
+                      >
+                        {fitGapChartData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={getCellColor(entry, 'fitgap')} 
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+              ) : (
+                <Box sx={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="body1" color="text.secondary">No fit/gap data available</Typography>
+                </Box>
+              )}
             </Paper>
           </Grid>
 
@@ -278,21 +339,27 @@ const Dashboard: React.FC = () => {
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 Requirements by Module
               </Typography>
-              <Box sx={{ height: 400 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={moduleChartData}>
-                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar 
-                      dataKey="value" 
-                      name="Requirements" 
-                      fill="#2196f3"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
+              {hasModuleData ? (
+                <Box sx={{ height: 400 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={moduleChartData}>
+                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar 
+                        dataKey="value" 
+                        name="Requirements" 
+                        fill="#2196f3"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              ) : (
+                <Box sx={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="body1" color="text.secondary">No module data available</Typography>
+                </Box>
+              )}
             </Paper>
           </Grid>
 
@@ -341,17 +408,23 @@ const Dashboard: React.FC = () => {
               <Card>
                 <CardHeader title="Implementation Progress by Department" />
                 <CardContent>
-                  <Box sx={{ height: DEFAULT_CHART_HEIGHT }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={moduleChartData} aria-label="Implementation Progress by Department Chart">
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="value" name="Requirements" fill="#2196f3" role="img" aria-label="Department implementation progress" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Box>
+                  {hasModuleData ? (
+                    <Box sx={{ height: DEFAULT_CHART_HEIGHT }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={moduleChartData} aria-label="Implementation Progress by Department Chart">
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="value" name="Requirements" fill="#2196f3" role="img" aria-label="Department implementation progress" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  ) : (
+                    <Box sx={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Typography variant="body1" color="text.secondary">No module data available</Typography>
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -360,35 +433,39 @@ const Dashboard: React.FC = () => {
               <Card>
                 <CardHeader title="Recent Activity" />
                 <CardContent>
-                  <List>
-                    {stats.recentChanges.map((change) => (
-                      <React.Fragment key={change.log_id}>
-                        <ListItem alignItems="flex-start">
-                          <ListItemText
-                            primary={`Requirement ${change.changed_requirement?.title || change.req_id}`}
-                            secondary={
-                              <>
-                                <Typography component="span" variant="body2" color="text.primary">
-                                  {change.change_type}
-                                  {change.field_changed !== 'All' && ` - ${change.field_changed}`}
-                                  {change.old_value && change.new_value && (
-                                    `: ${change.old_value} → ${change.new_value}`
-                                  )}
-                                </Typography>
-                                {' by '}
-                                <Typography component="span" variant="body2" color="primary">
-                                  {change.change_author?.username || 'Unknown'}
-                                </Typography>
-                                {' - '}
-                                {new Date(change.timestamp).toLocaleString()}
-                              </>
-                            }
-                          />
-                        </ListItem>
-                        <Divider component="li" />
-                      </React.Fragment>
-                    ))}
-                  </List>
+                  {stats?.recentChanges?.length > 0 ? (
+                    <List>
+                      {stats.recentChanges.map((change) => (
+                        <React.Fragment key={change.log_id}>
+                          <ListItem alignItems="flex-start">
+                            <ListItemText
+                              primary={`Requirement ${change.changed_requirement?.title || change.req_id}`}
+                              secondary={
+                                <>
+                                  <Typography component="span" variant="body2" color="text.primary">
+                                    {change.change_type}
+                                    {change.field_changed !== 'All' && ` - ${change.field_changed}`}
+                                    {change.old_value && change.new_value && (
+                                      `: ${change.old_value} → ${change.new_value}`
+                                    )}
+                                  </Typography>
+                                  {' by '}
+                                  <Typography component="span" variant="body2" color="primary">
+                                    {change.change_author?.username || 'Unknown'}
+                                  </Typography>
+                                  {' - '}
+                                  {new Date(change.timestamp).toLocaleString()}
+                                </>
+                              }
+                            />
+                          </ListItem>
+                          <Divider component="li" />
+                        </React.Fragment>
+                      ))}
+                    </List>
+                  ) : (
+                    <Typography variant="body1" color="text.secondary" align="center">No recent activity</Typography>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -446,29 +523,35 @@ const Dashboard: React.FC = () => {
               <Card>
                 <CardHeader title="Solution Options Distribution" />
                 <CardContent>
-                  <Box sx={{ height: DEFAULT_CHART_HEIGHT }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart aria-label="Solution Options Distribution Chart">
-                        <Pie
-                          data={fitGapChartData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          label
-                          role="img"
-                          aria-label="Solution options distribution"
-                        >
-                          {fitGapChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={getCellColor(entry, 'fitgap')} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </Box>
+                  {hasFitGapData ? (
+                    <Box sx={{ height: DEFAULT_CHART_HEIGHT }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart aria-label="Solution Options Distribution Chart">
+                          <Pie
+                            data={fitGapChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            label
+                            role="img"
+                            aria-label="Solution options distribution"
+                          >
+                            {fitGapChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={getCellColor(entry, 'fitgap')} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  ) : (
+                    <Box sx={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Typography variant="body1" color="text.secondary">No fit/gap data available</Typography>
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
