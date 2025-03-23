@@ -56,7 +56,7 @@ const TabPanel = (props: TabPanelProps) => {
       hidden={value !== index}
       id={`solution-tabpanel-${index}`}
       aria-labelledby={`solution-tab-${index}`}
-      {...other}
+      {...other }
     >
       {value === index && (
         <Box sx={{ pt: 2 }}>
@@ -89,6 +89,9 @@ const RequirementDetail: React.FC = () => {
         }
         
         const response = await getRequirementById(parseInt(id));
+        console.log('Requirement data received:', response.requirement);
+        console.log('Solution option 1:', response.requirement.solution_option_1);
+        console.log('Solution option 1 time estimate:', response.requirement.solution_option_1_time_estimate);
         setRequirement(response.requirement);
       } catch (err: any) {
         console.error('Error fetching requirement:', err);
@@ -246,7 +249,7 @@ const RequirementDetail: React.FC = () => {
                   Functional Department
                 </Typography>
                 <Typography variant="body1">
-                  {requirement?.BCFunctionalDepartment?.name || 'Not specified'}
+                  {requirement?.bc_department?.name || 'Not specified'}
                 </Typography>
               </Grid>
               <Grid item xs={12}>
@@ -254,7 +257,7 @@ const RequirementDetail: React.FC = () => {
                   Functional Area
                 </Typography>
                 <Typography variant="body1">
-                  {requirement?.FunctionalArea?.name || 'Not specified'}
+                  {requirement?.functional_area_relation?.name || 'Not specified'}
                 </Typography>
               </Grid>
               <Grid item xs={12}>
@@ -361,7 +364,7 @@ const RequirementDetail: React.FC = () => {
                     Time Estimate
                   </Typography>
                   <Typography variant="body1">
-                    {requirement?.solution_option_1_time_estimate 
+                    {requirement?.solution_option_1_time_estimate !== null && requirement?.solution_option_1_time_estimate !== undefined 
                       ? `${requirement.solution_option_1_time_estimate} hours`
                       : 'No estimate provided'}
                   </Typography>
@@ -384,7 +387,7 @@ const RequirementDetail: React.FC = () => {
                     Time Estimate
                   </Typography>
                   <Typography variant="body1">
-                    {requirement?.solution_option_2_time_estimate 
+                    {requirement?.solution_option_2_time_estimate !== null && requirement?.solution_option_2_time_estimate !== undefined
                       ? `${requirement.solution_option_2_time_estimate} hours`
                       : 'No estimate provided'}
                   </Typography>
@@ -407,7 +410,7 @@ const RequirementDetail: React.FC = () => {
                     Time Estimate
                   </Typography>
                   <Typography variant="body1">
-                    {requirement?.solution_option_3_time_estimate 
+                    {requirement?.solution_option_3_time_estimate !== null && requirement?.solution_option_3_time_estimate !== undefined
                       ? `${requirement.solution_option_3_time_estimate} hours`
                       : 'No estimate provided'}
                   </Typography>
@@ -570,6 +573,9 @@ const RequirementDetail: React.FC = () => {
             </Grid>
           </Paper>
         </Grid>
+
+        {/* Debug section has been removed */}
+
       </Grid>
 
       {/* Delete Confirmation Dialog */}

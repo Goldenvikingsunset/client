@@ -92,7 +92,7 @@ const RequirementForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // Master data states
+  // Master data states with default empty arrays
   const [moduleList, setModuleList] = useState<Module[]>([]);
   const [subModuleList, setSubModuleList] = useState<SubModule[]>([]);
   const [functionList, setFunctionList] = useState<Function[]>([]);
@@ -105,10 +105,11 @@ const RequirementForm: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<number | null>(null);
   const [selectedSubModule, setSelectedSubModule] = useState<number | null>(null);
 
-  // Add new state for BC RTM data
+  // Add new state for BC RTM data with default empty arrays
   const [departments, setDepartments] = useState<BCFunctionalDepartment[]>([]);
   const [functionalAreas, setFunctionalAreas] = useState<FunctionalArea[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
+  const [selectedBCDepartment, setSelectedBCDepartment] = useState<number | null>(null);
   
   // Initialize form with updated values
   const formik = useFormik({
@@ -128,6 +129,9 @@ const RequirementForm: React.FC = () => {
       // BC RTM fields
       business_central_functional_department: null as number | null,
       functional_area: null as number | null,
+      // Add these fields to ensure compatibility with both field naming conventions
+      bc_department_id: null as number | null,
+      functional_area_id: null as number | null,
       template_item: false,
       functional_consultant: '',
       requirement_owner_client: '',
@@ -155,6 +159,9 @@ const RequirementForm: React.FC = () => {
           option_id: values.option_id || null,
           business_central_functional_department: values.business_central_functional_department || null,
           functional_area: values.functional_area || null,
+          // Set both field names to ensure compatibility
+          bc_department_id: values.business_central_functional_department || null,
+          functional_area_id: values.functional_area || null,
           solution_option_1_time_estimate: values.solution_option_1_time_estimate || null,
           solution_option_2_time_estimate: values.solution_option_2_time_estimate || null,
           solution_option_3_time_estimate: values.solution_option_3_time_estimate || null,
@@ -192,6 +199,15 @@ const RequirementForm: React.FC = () => {
   // Fetch all necessary master data
   const fetchMasterData = async () => {
     try {
+      // Initialize with empty arrays before fetching
+      setModuleList([]);
+      setSubModuleList([]);
+      setFunctionList([]);
+      setPriorityList([]);
+      setStatusList([]);
+      setFitGapList([]);
+      setSolutionOptionList([]);
+      
       const [
         modulesResponse,
         subModulesResponse,
@@ -210,31 +226,47 @@ const RequirementForm: React.FC = () => {
         solutionOptions.getAll(),
       ]);
       
-      setModuleList(modulesResponse);
-      setSubModuleList(subModulesResponse);
-      setFunctionList(functionsResponse);
-      setPriorityList(prioritiesResponse);
-      setStatusList(statusesResponse);
-      setFitGapList(fitGapResponse);
-      setSolutionOptionList(solutionOptionsResponse);
+      setModuleList(modulesResponse || []);
+      setSubModuleList(subModulesResponse || []);
+      setFunctionList(functionsResponse || []);
+      setPriorityList(prioritiesResponse || []);
+      setStatusList(statusesResponse || []);
+      setFitGapList(fitGapResponse || []);
+      setSolutionOptionList(solutionOptionsResponse || []);
     } catch (err: any) {
       console.error('Error fetching master data:', err);
       setError('Failed to load form data. Please try again.');
+      // Initialize with empty arrays on error
+      setModuleList([]);
+      setSubModuleList([]);
+      setFunctionList([]);
+      setPriorityList([]);
+      setStatusList([]);
+      setFitGapList([]);
+      setSolutionOptionList([]);
     }
   };
 
   // Add fetch for BC RTM data
   const fetchBCRTMData = async () => {
     try {
+      // Initialize with empty arrays before fetching
+      setDepartments([]);
+      setFunctionalAreas([]);
+      
       const [deptResponse, areasResponse] = await Promise.all([
         bcrtm.getDepartments(),
         bcrtm.getFunctionalAreas(),
       ]);
-      setDepartments(deptResponse.departments);
-      setFunctionalAreas(areasResponse.areas);
+      
+      setDepartments(deptResponse?.departments || []);
+      setFunctionalAreas(areasResponse?.areas || []);
     } catch (err: any) {
       console.error('Error fetching BC RTM data:', err);
       setError('Failed to load BC RTM data');
+      // Initialize with empty arrays on error
+      setDepartments([]);
+      setFunctionalAreas([]);
     }
   };
   
@@ -259,9 +291,11 @@ const RequirementForm: React.FC = () => {
         phase: requirement.phase || 'Initial',
         in_scope: requirement.in_scope !== undefined ? requirement.in_scope : true,
         comments: requirement.comments || '',
-        // BC RTM fields
-        business_central_functional_department: requirement.business_central_functional_department || null,
-        functional_area: requirement.functional_area || null,
+        // Use both field naming conventions to ensure compatibility
+        business_central_functional_department: requirement.business_central_functional_department || requirement.bc_department_id || null,
+        functional_area: requirement.functional_area || requirement.functional_area_id || null,
+        bc_department_id: requirement.business_central_functional_department || requirement.bc_department_id || null,
+        functional_area_id: requirement.functional_area || requirement.functional_area_id || null,
         template_item: requirement.template_item || false,
         functional_consultant: requirement.functional_consultant || '',
         requirement_owner_client: requirement.requirement_owner_client || '',
@@ -276,17 +310,16 @@ const RequirementForm: React.FC = () => {
         status_client: requirement.status_client || '',
         client_comments: requirement.client_comments || '',
         client_preferences: requirement.client_preferences || '',
-      });
+      }, false); // Add false to prevent validation on initial set
       
       // Set the selected module and submodule if function is available
       if (requirement.function_id) {
         const func = functionList.find(f => f.function_id === requirement.function_id);
         if (func && func.submodule_id) {
-          setSelectedSubModule(func.submodule_id);
-          
           const submod = subModuleList.find(sm => sm.submodule_id === func.submodule_id);
           if (submod && submod.module_id) {
             setSelectedModule(submod.module_id);
+            setSelectedSubModule(func.submodule_id);
           }
         }
       }
@@ -296,7 +329,7 @@ const RequirementForm: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id]); // Add any dependencies fetchRequirement uses
+  }, [id, formik.setValues]); // Only depend on id and formik.setValues
   
   // Initial data load
   useEffect(() => {
@@ -308,32 +341,31 @@ const RequirementForm: React.FC = () => {
     if (isEditMode && id && moduleList.length > 0 && subModuleList.length > 0 && functionList.length > 0) {
       fetchRequirement();
     }
-  }, [isEditMode, id, moduleList, subModuleList, functionList, fetchRequirement]);
+  }, [isEditMode, id, moduleList.length, subModuleList.length, functionList.length, fetchRequirement]);
   
   // When a function is selected, update the module/submodule selections
   useEffect(() => {
-    if (formik.values.function_id) {
+    if (!loading && formik.values.function_id) {
       const selectedFunc = functionList.find(f => f.function_id === formik.values.function_id);
       if (selectedFunc && selectedFunc.submodule_id) {
-        setSelectedSubModule(selectedFunc.submodule_id);
-        
         const selectedSubMod = subModuleList.find(sm => sm.submodule_id === selectedFunc.submodule_id);
         if (selectedSubMod && selectedSubMod.module_id) {
           setSelectedModule(selectedSubMod.module_id);
+          setSelectedSubModule(selectedFunc.submodule_id);
         }
       }
     }
-  }, [formik.values.function_id, functionList, subModuleList]);
+  }, [formik.values.function_id]);
   
-  // Filter submodules based on selected module
-  const filteredSubModules = selectedModule 
+  // Filter submodules based on selected module with null check
+  const filteredSubModules = selectedModule && subModuleList
     ? subModuleList.filter(sm => sm.module_id === selectedModule)
-    : subModuleList;
+    : subModuleList || [];
   
-  // Filter functions based on selected submodule
-  const filteredFunctions = selectedSubModule
+  // Filter functions based on selected submodule with null check
+  const filteredFunctions = selectedSubModule && functionList
     ? functionList.filter(f => f.submodule_id === selectedSubModule)
-    : functionList;
+    : functionList || [];
   
   // Handle module selection change
   const handleModuleChange = (moduleId: number) => {
@@ -352,14 +384,23 @@ const RequirementForm: React.FC = () => {
   const handleDepartmentChange = async (departmentId: number) => {
     setSelectedDepartment(departmentId);
     formik.setFieldValue('business_central_functional_department', departmentId);
+    formik.setFieldValue('bc_department_id', departmentId); // Set both field names
     formik.setFieldValue('functional_area', null);
+    formik.setFieldValue('functional_area_id', null); // Set both field names
     
     try {
       const response = await bcrtm.getFunctionalAreas({ department_id: departmentId });
-      setFunctionalAreas(response.areas);
+      setFunctionalAreas(response?.areas || []);
     } catch (err) {
       console.error('Error fetching functional areas:', err);
+      setFunctionalAreas([]);
     }
+  };
+
+  // Update handler for functional area change
+  const handleFunctionalAreaChange = (areaId: number) => {
+    formik.setFieldValue('functional_area', areaId);
+    formik.setFieldValue('functional_area_id', areaId); // Set both field names
   };
   
   // Handle snackbar close
@@ -367,6 +408,17 @@ const RequirementForm: React.FC = () => {
     setSuccess(null);
     setError(null);
   };
+  
+  // Make sure all arrays are initialized to empty arrays if undefined
+  const safeModuleList = moduleList || [];
+  const safeSubModuleList = subModuleList || [];
+  const safeFunctionList = functionList || []; 
+  const safePriorityList = priorityList || [];
+  const safeStatusList = statusList || [];
+  const safeFitGapList = fitGapList || [];
+  const safeSolutionOptionList = solutionOptionList || [];
+  const safeDepartments = departments || [];
+  const safeFunctionalAreas = functionalAreas || [];
   
   if (loading && !formik.isSubmitting) {
     return (
@@ -458,6 +510,7 @@ const RequirementForm: React.FC = () => {
                   Classification
                 </Typography>
                 <Grid container spacing={3}>
+                  {/* Module dropdown */}
                   <Grid item xs={12} md={4}>
                     <FormControl 
                       fullWidth
@@ -475,7 +528,7 @@ const RequirementForm: React.FC = () => {
                         }}
                       >
                         <MenuItem value="">Select Module</MenuItem>
-                        {moduleList.map((module) => (
+                        {safeModuleList.map((module) => (
                           <MenuItem key={module.module_id} value={module.module_id}>
                             {module.name}
                           </MenuItem>
@@ -572,7 +625,7 @@ const RequirementForm: React.FC = () => {
                         }}
                       >
                         <MenuItem value="">Select Priority</MenuItem>
-                        {priorityList.map((priority) => (
+                        {safePriorityList.map((priority) => (
                           <MenuItem key={priority.priority_id} value={priority.priority_id}>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                               <StatusChip label={priority.name} type="priority" size="small" />
@@ -605,7 +658,7 @@ const RequirementForm: React.FC = () => {
                         }}
                       >
                         <MenuItem value="">Select Status</MenuItem>
-                        {statusList.map((status) => (
+                        {safeStatusList.map((status) => (
                           <MenuItem key={status.status_id} value={status.status_id}>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                               <StatusChip label={status.name} type="status" size="small" />
@@ -691,7 +744,7 @@ const RequirementForm: React.FC = () => {
                         }}
                       >
                         <MenuItem value="">Select Fit/Gap</MenuItem>
-                        {fitGapList.map((fitGap) => (
+                        {safeFitGapList.map((fitGap) => (
                           <MenuItem key={fitGap.fitgap_id} value={fitGap.fitgap_id}>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                               <StatusChip label={fitGap.name} type="fitgap" size="small" />
@@ -721,7 +774,7 @@ const RequirementForm: React.FC = () => {
                         }}
                       >
                         <MenuItem value="">None</MenuItem>
-                        {solutionOptionList.map((option) => (
+                        {safeSolutionOptionList.map((option) => (
                           <MenuItem key={option.option_id} value={option.option_id}>
                             {option.name}
                           </MenuItem>
@@ -789,21 +842,21 @@ const RequirementForm: React.FC = () => {
                       fullWidth
                       error={Boolean(formik.touched.business_central_functional_department && formik.errors.business_central_functional_department)}
                     >
-                      <InputLabel id="bc-department-label">BC Department *</InputLabel>
+                      <InputLabel id="bc-department-label">Functional Department *</InputLabel>
                       <Select
                         labelId="bc-department-label"
                         id="business_central_functional_department"
                         name="business_central_functional_department"
                         value={formik.values.business_central_functional_department || ''}
-                        label="BC Department *"
+                        label="Functional Department *"
                         onChange={(e) => handleDepartmentChange(e.target.value as number)}
                         onBlur={formik.handleBlur}
                         inputProps={{
-                          'aria-label': 'Select BC department'
+                          'aria-label': 'Select functional department'
                         }}
                       >
                         <MenuItem value="">Select Department</MenuItem>
-                        {departments.map((dept) => (
+                        {safeDepartments.map((dept) => (
                           <MenuItem key={dept.id} value={dept.id}>
                             {dept.name}
                           </MenuItem>
@@ -828,14 +881,14 @@ const RequirementForm: React.FC = () => {
                         name="functional_area"
                         value={formik.values.functional_area || ''}
                         label="Functional Area *"
-                        onChange={formik.handleChange}
+                        onChange={(e) => handleFunctionalAreaChange(e.target.value as number)}
                         onBlur={formik.handleBlur}
                         inputProps={{
                           'aria-label': 'Select functional area'
                         }}
                       >
                         <MenuItem value="">Select Area</MenuItem>
-                        {functionalAreas.map((area) => (
+                        {safeFunctionalAreas.map((area) => (
                           <MenuItem key={area.id} value={area.id}>
                             {area.name}
                           </MenuItem>
@@ -845,6 +898,21 @@ const RequirementForm: React.FC = () => {
                         <FormHelperText>{formik.errors.functional_area as string}</FormHelperText>
                       )}
                     </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="workshop_name"
+                      name="workshop_name"
+                      label="Workshop"
+                      value={formik.values.workshop_name}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      inputProps={{
+                        'aria-label': 'Workshop name'
+                      }}
+                    />
                   </Grid>
 
                   <Grid item xs={12}>
@@ -894,21 +962,6 @@ const RequirementForm: React.FC = () => {
                       helperText={formik.touched.requirement_owner_client && formik.errors.requirement_owner_client}
                       inputProps={{
                         'aria-label': 'Client owner'
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      id="workshop_name"
-                      name="workshop_name"
-                      label="Workshop Name"
-                      value={formik.values.workshop_name}
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      inputProps={{
-                        'aria-label': 'Workshop name'
                       }}
                     />
                   </Grid>

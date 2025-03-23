@@ -115,18 +115,71 @@ export const solutionOptions = {
   delete: (id: number) => deleteEntity('/master-data/solution-options', id)
 };
 
+// BC Department endpoints for master data management
+export const bcDepartments = {
+  getAll: async (): Promise<BCFunctionalDepartment[]> => {
+    const response = await api.get('/bc-data/departments');
+    return Array.isArray(response.data) ? response.data : (response.data.departments || []);
+  },
+  getById: async (id: number): Promise<BCFunctionalDepartment> => {
+    const response = await api.get(`/bc-data/departments/${id}`);
+    return response.data;
+  },
+  create: async (data: Partial<BCFunctionalDepartment>): Promise<BCFunctionalDepartment> => {
+    // Ensure we're sending just the name and description as expected by the backend
+    const response = await api.post('/bc-data/departments', {
+      name: data.name,
+      description: data.description || ''
+    });
+    return response.data;
+  },
+  update: async (id: number, data: Partial<BCFunctionalDepartment>): Promise<BCFunctionalDepartment> => {
+    const response = await api.put(`/bc-data/departments/${id}`, {
+      name: data.name,
+      description: data.description || ''
+    });
+    return response.data;
+  },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/bc-data/departments/${id}`);
+    return response.data;
+  }
+};
+
 // BC RTM endpoints
 export const bcrtm = {
+  getAll: async (): Promise<BCFunctionalDepartment[]> => {
+    const response = await api.get('/bc-data/departments');
+    return response.data.departments || [];
+  },
+  getById: async (id: number): Promise<BCFunctionalDepartment> => {
+    const response = await api.get(`/bc-data/departments/${id}`);
+    return response.data;
+  },
+  create: async (data: Partial<BCFunctionalDepartment>): Promise<BCFunctionalDepartment> => {
+    const response = await api.post('/bc-data/departments', data);
+    return response.data;
+  },
+  update: async (id: number, data: Partial<BCFunctionalDepartment>): Promise<BCFunctionalDepartment> => {
+    const response = await api.put(`/bc-data/departments/${id}`, data);
+    return response.data;
+  },
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await api.delete(`/bc-data/departments/${id}`);
+    return response.data;
+  },
+  
+  // Original methods kept for compatibility
   getDepartments: async (): Promise<{ departments: BCFunctionalDepartment[] }> => {
-    const response = await api.get('/api/departments');
+    const response = await api.get('/bc-data/departments');
     return response.data;
   },
   getFunctionalAreas: async (params?: { department_id?: number }): Promise<{ areas: FunctionalArea[] }> => {
-    const response = await api.get('/api/functional-areas', { params });
+    const response = await api.get('/bc-data/functional-areas', { params });
     return response.data;
   },
   getSolutionOptions: async (): Promise<{ options: SolutionOption[] }> => {
-    const response = await api.get('/api/solution-options');
+    const response = await api.get('/solution-options');
     return response.data;
   },
   createDepartment: async (data: { name: string; description: string }) => {

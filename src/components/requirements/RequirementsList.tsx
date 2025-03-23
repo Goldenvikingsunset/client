@@ -198,8 +198,8 @@ const RequirementsList: React.FC = () => {
         prioritiesResponse,
         statusesResponse,
         fitGapResponse,
-        departmentsResponse,
-        areasResponse,
+        { departments: departmentsResponse },  // Destructure departments from response
+        { areas: areasResponse }               // Destructure areas from response
       ] = await Promise.all([
         modules.getAll(),
         subModules.getAll(),
@@ -217,10 +217,13 @@ const RequirementsList: React.FC = () => {
       setPriorityList(prioritiesResponse);
       setStatusList(statusesResponse);
       setFitGapList(fitGapResponse);
-      setDepartmentList(departmentsResponse);
-      setAreaList(areasResponse);
+      setDepartmentList(departmentsResponse || []); // Add null check
+      setAreaList(areasResponse || []); // Add null check
     } catch (err: any) {
       console.error('Error fetching filter options:', err);
+      // Initialize with empty arrays on error
+      setDepartmentList([]);
+      setAreaList([]);
     }
   };
   
@@ -992,9 +995,9 @@ const RequirementsList: React.FC = () => {
       case 'title':
         return req.title;
       case 'businessCentralDepartment':
-        return req.BCFunctionalDepartment?.name || '';
+        return req.bc_department?.name || req.BCFunctionalDepartment?.name || '';
       case 'functionalArea':
-        return req.FunctionalArea?.name || '';
+        return req.functional_area_relation?.name || req.FunctionalArea?.name || '';
       case 'isTemplateItem':
         return req.template_item ? 'Yes' : 'No';
       case 'functionalConsultant':

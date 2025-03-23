@@ -37,6 +37,7 @@ import {
   AssignmentTurnedIn as StatusesIcon,
   CompareArrows as FitGapIcon,
   Lightbulb as SolutionsIcon,
+  Business as DepartmentIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { FocusTrap } from '@mui/base';
@@ -77,6 +78,7 @@ const navigationItems: NavigationItem[] = [
       { text: 'Statuses', icon: <StatusesIcon />, path: '/master-data/statuses', requiredRole: 'Admin' },
       { text: 'Fit/Gap Statuses', icon: <FitGapIcon />, path: '/master-data/fitgap', requiredRole: 'Admin' },
       { text: 'Solution Options', icon: <SolutionsIcon />, path: '/master-data/solution-options', requiredRole: 'Admin' },
+      { text: 'BC Departments', icon: <DepartmentIcon />, path: '/master-data/bc-departments', requiredRole: 'Admin' },
     ]
   },
   { text: 'User Management', icon: <UsersIcon />, path: '/users', requiredRole: 'Admin' },

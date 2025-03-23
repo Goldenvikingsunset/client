@@ -3,7 +3,7 @@ import { BCFunctionalDepartment, FunctionalArea } from '../types';
 
 export const getDepartments = async (): Promise<{ departments: BCFunctionalDepartment[] }> => {
   try {
-    const response = await api.get<{ departments: BCFunctionalDepartment[] }>('/departments');
+    const response = await api.get<{ departments: BCFunctionalDepartment[] }>('/bc-data/departments');
     return response.data;
   } catch (error) {
     console.error('Error fetching departments:', error);
@@ -13,7 +13,7 @@ export const getDepartments = async (): Promise<{ departments: BCFunctionalDepar
 
 export const getFunctionalAreas = async (): Promise<{ areas: FunctionalArea[] }> => {
   try {
-    const response = await api.get<{ areas: FunctionalArea[] }>('/functional-areas');
+    const response = await api.get<{ areas: FunctionalArea[] }>('/bc-data/functional-areas');
     return response.data;
   } catch (error) {
     console.error('Error fetching functional areas:', error);

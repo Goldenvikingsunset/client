@@ -27,7 +27,13 @@ export const getRequirements = async (
 
 // Get a single requirement by ID
 export const getRequirementById = async (id: number): Promise<RequirementResponse> => {
-  const response = await api.get<RequirementResponse>(`/requirements/${id}`);
+  const response = await api.get<RequirementResponse>(`/requirements/${id}`, {
+    headers: {
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  });
   return response.data;
 };
 

@@ -108,6 +108,8 @@ export interface Requirement {
   // New BC RTM fields
   business_central_functional_department: number | null;
   functional_area: number | null;
+  bc_department_id: number | null;
+  functional_area_id: number | null;
   template_item: boolean;
   functional_consultant: string | null;
   requirement_owner_client: string | null;
@@ -133,8 +135,12 @@ export interface Requirement {
   Status?: Status;
   FitGapStatus?: FitGapStatus;
   SolutionOption?: SolutionOption;
+  // Original associations with standard naming
   BCFunctionalDepartment?: BCFunctionalDepartment;
   FunctionalArea?: FunctionalArea;
+  // Adding the backend model associations with their actual aliases
+  bc_department?: BCFunctionalDepartment;
+  functional_area_relation?: FunctionalArea;
 }
 
 export interface ChangeLog {
@@ -289,6 +295,9 @@ export interface RequirementForm {
   // New BC RTM fields
   business_central_functional_department: number | null;
   functional_area: number | null;
+  // Add these fields to make them compatible with the Requirement model
+  bc_department_id: number | null;
+  functional_area_id: number | null;
   template_item: boolean;
   functional_consultant: string;
   requirement_owner_client: string;

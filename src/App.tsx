@@ -27,6 +27,7 @@ import PrioritiesPage from './components/masterdata/PrioritiesPage';
 import StatusesPage from './components/masterdata/StatusesPage';
 import FitGapStatusesPage from './components/masterdata/FitGapStatusesPage';
 import SolutionOptionsPage from './components/masterdata/SolutionOptionsPage';
+import BCDepartmentsPage from './components/masterdata/BCDepartmentsPage';
 
 // User Management
 import UsersList from './components/users/UsersList';
@@ -132,6 +133,11 @@ const App: React.FC = () => {
               <Route path="solution-options" element={
                 <AdminRoute>
                   <SolutionOptionsPage />
+                </AdminRoute>
+              } />
+              <Route path="bc-departments" element={
+                <AdminRoute>
+                  <BCDepartmentsPage />
                 </AdminRoute>
               } />
             </Route>
