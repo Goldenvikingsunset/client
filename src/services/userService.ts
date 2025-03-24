@@ -47,4 +47,22 @@ export const updateUserPassword = async (id: number, password: string): Promise<
 export const deleteUser = async (id: number): Promise<{ message: string }> => {
   const response = await api.delete<{ message: string }>(`/users/${id}`);
   return response.data;
-}; 
+};
+
+// Update profile (for current user)
+export const updateProfile = async (profileData: {
+  username?: string;
+  email?: string;
+}): Promise<User> => {
+  const response = await api.put<User>('/auth/profile', profileData);
+  return response.data;
+};
+
+// Change password (for current user)
+export const changePassword = async (passwordData: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ message: string }> => {
+  const response = await api.put<{ message: string }>('/auth/change-password', passwordData);
+  return response.data;
+};

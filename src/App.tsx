@@ -18,6 +18,7 @@ import RequirementsList from './components/requirements/RequirementsList';
 import RequirementDetail from './components/requirements/RequirementDetail';
 import RequirementForm from './components/requirements/RequirementForm';
 import BulkImport from './components/requirements/BulkImport';
+import ProfilePage from './components/user/ProfilePage';
 
 // Master Data Components
 import ModulesPage from './components/masterdata/ModulesPage';
@@ -87,6 +88,7 @@ const App: React.FC = () => {
           >
             <Route index element={<Navigate to="/dashboard" />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="profile" element={<ProfilePage />} />
             
             {/* Requirements Routes */}
             <Route path="requirements">
