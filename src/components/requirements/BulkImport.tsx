@@ -59,6 +59,9 @@ const BulkImport: React.FC = () => {
   // Required fields in the system
   const requiredFields = ['title', 'description', 'module', 'submodule', 'function', 'priority', 'status', 'fitgap'];
   
+  // Add BC RTM required fields
+  const bcRequiredFields = ['business_central_functional_department', 'functional_area', 'functional_consultant', 'requirement_owner_client'];
+  
   // Handle file selection
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -90,9 +93,27 @@ const BulkImport: React.FC = () => {
               else if (lowerHeader.includes('submodule') || lowerHeader.includes('sub-module') || lowerHeader.includes('sub module')) initialMapping[header] = 'submodule';
               else if (lowerHeader.includes('function')) initialMapping[header] = 'function';
               else if (lowerHeader.includes('priority')) initialMapping[header] = 'priority';
-              else if (lowerHeader.includes('status')) initialMapping[header] = 'status';
+              else if (lowerHeader.includes('status') && !lowerHeader.includes('client')) initialMapping[header] = 'status';
               else if (lowerHeader.includes('fit') || lowerHeader.includes('gap')) initialMapping[header] = 'fitgap';
-              else if (lowerHeader.includes('phase')) initialMapping[header] = 'phase';
+              else if (lowerHeader.includes('phase') && !lowerHeader.includes('comment')) initialMapping[header] = 'phase';
+              // BC RTM specific field mappings
+              else if (lowerHeader.includes('depart')) initialMapping[header] = 'business_central_functional_department';
+              else if (lowerHeader.includes('area') || lowerHeader.includes('functional area')) initialMapping[header] = 'functional_area';
+              else if (lowerHeader.includes('template')) initialMapping[header] = 'template_item';
+              else if (lowerHeader.includes('consultant')) initialMapping[header] = 'functional_consultant';
+              else if (lowerHeader.includes('client') && lowerHeader.includes('owner')) initialMapping[header] = 'requirement_owner_client';
+              else if (lowerHeader.includes('solution') && lowerHeader.includes('1')) initialMapping[header] = 'solution_option_1';
+              else if (lowerHeader.includes('time') && lowerHeader.includes('1')) initialMapping[header] = 'solution_option_1_time_estimate';
+              else if (lowerHeader.includes('solution') && lowerHeader.includes('2')) initialMapping[header] = 'solution_option_2';
+              else if (lowerHeader.includes('time') && lowerHeader.includes('2')) initialMapping[header] = 'solution_option_2_time_estimate';
+              else if (lowerHeader.includes('solution') && lowerHeader.includes('3')) initialMapping[header] = 'solution_option_3';
+              else if (lowerHeader.includes('time') && lowerHeader.includes('3')) initialMapping[header] = 'solution_option_3_time_estimate';
+              else if (lowerHeader.includes('workshop')) initialMapping[header] = 'workshop_name';
+              else if (lowerHeader.includes('phase') && lowerHeader.includes('comment')) initialMapping[header] = 'phase_comments';
+              else if (lowerHeader.includes('client') && lowerHeader.includes('status')) initialMapping[header] = 'status_client';
+              else if (lowerHeader.includes('client') && lowerHeader.includes('comment')) initialMapping[header] = 'client_comments';
+              else if (lowerHeader.includes('client') && lowerHeader.includes('prefer')) initialMapping[header] = 'client_preferences';
+              // Legacy fields
               else if (lowerHeader.includes('solution') && lowerHeader.includes('option')) initialMapping[header] = 'solution_option';
               else if (lowerHeader.includes('solution') && lowerHeader.includes('desc')) initialMapping[header] = 'solution_description';
               else if (lowerHeader.includes('note')) initialMapping[header] = 'additional_notes';
@@ -156,6 +177,14 @@ const BulkImport: React.FC = () => {
         }
       });
       
+      // Check BC RTM required fields
+      bcRequiredFields.forEach(field => {
+        const mappedHeader = Object.keys(columnMapping).find(key => columnMapping[key] === field);
+        if (mappedHeader && !row[mappedHeader]) {
+          rowErrors.push(`Missing BC RTM required field: ${field}`);
+        }
+      });
+      
       if (rowErrors.length > 0) {
         errors[rowIndex] = rowErrors;
         hasErrors = true;
@@ -179,6 +208,11 @@ const BulkImport: React.FC = () => {
         !Object.values(columnMapping).includes(field)
       );
       
+      // Also check for BC required fields that have been mapped but might be empty
+      const bcFieldsMapped = bcRequiredFields.filter(field => 
+        Object.values(columnMapping).includes(field)
+      );
+      
       if (isMissingRequiredField) {
         setError('All required fields must be mapped');
         return;
@@ -187,6 +221,7 @@ const BulkImport: React.FC = () => {
       // Validate data
       if (!validateData()) {
         setError('There are validation errors in the data. Please review.');
+        return;
       }
     }
     
@@ -231,6 +266,25 @@ const BulkImport: React.FC = () => {
           in_scope: true,
           option_id: null,
           comments: '',
+          // Set default values for BC RTM fields
+          business_central_functional_department: null,
+          functional_area: null,
+          bc_department_id: null,
+          functional_area_id: null,
+          template_item: false,
+          functional_consultant: '',
+          requirement_owner_client: '',
+          solution_option_1: '',
+          solution_option_1_time_estimate: null,
+          solution_option_2: '',
+          solution_option_2_time_estimate: null,
+          solution_option_3: '',
+          solution_option_3_time_estimate: null,
+          workshop_name: '',
+          phase_comments: '',
+          status_client: '',
+          client_comments: '',
+          client_preferences: '',
         };
         
         // Apply mappings
@@ -238,12 +292,36 @@ const BulkImport: React.FC = () => {
           const field = columnMapping[header];
           const value = row[header];
           
-          if (field && value) {
+          if (field && value !== undefined) {
             // Handle special mappings
             if (field === 'module' || field === 'submodule' || field === 'function') {
               // These will be resolved on the server side by name
               transformedRow[field] = value;
-            } 
+            }
+            else if (field === 'business_central_functional_department') {
+              // Store department name for server-side resolution
+              transformedRow['department_name'] = value;
+              // Department ID will be resolved on the server
+              transformedRow['business_central_functional_department'] = value;
+              transformedRow['bc_department_id'] = value;
+            }
+            else if (field === 'functional_area') {
+              // Store area name for server-side resolution
+              transformedRow['area_name'] = value;
+              // Area ID will be resolved on the server
+              transformedRow['functional_area'] = value;
+              transformedRow['functional_area_id'] = value;
+            }
+            else if (field === 'template_item') {
+              // Convert to boolean
+              transformedRow[field] = value.toLowerCase() === 'true' || value.toLowerCase() === 'yes' || value === '1';
+            }
+            else if (field === 'solution_option_1_time_estimate' || 
+                    field === 'solution_option_2_time_estimate' || 
+                    field === 'solution_option_3_time_estimate') {
+              // Convert to number or null
+              transformedRow[field] = value ? parseFloat(value) : null;
+            }
             else if (field === 'solution_option') {
               transformedRow.option_id = value;
             }
@@ -258,7 +336,7 @@ const BulkImport: React.FC = () => {
         
         return transformedRow as RequirementForm;
       });
-      
+
       // Send to API
       const result = await bulkImportRequirements(transformedData);
       
@@ -293,7 +371,7 @@ const BulkImport: React.FC = () => {
   
   // Download template
   const downloadTemplate = () => {
-    const headers = 'Title,Description,Module,SubModule,Function,Priority,Status,FitGap,Phase,Solution Option,Solution Description,Additional Notes';
+    const headers = 'Title,Description,Module,SubModule,Function,Priority,Status,FitGap,Phase,Department,FunctionalArea,TemplateItem,FunctionalConsultant,ClientOwner,SolutionOption1,TimeEstimate1,SolutionOption2,TimeEstimate2,SolutionOption3,TimeEstimate3,WorkshopName,PhaseComments,ClientStatus,ClientComments,ClientPreferences';
     const blob = new Blob([headers], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     
@@ -406,9 +484,25 @@ const BulkImport: React.FC = () => {
                       </MenuItem>
                     ))}
                     <MenuItem value="phase">phase</MenuItem>
-                    <MenuItem value="solution_option">solution_option</MenuItem>
-                    <MenuItem value="solution_description">solution_description</MenuItem>
-                    <MenuItem value="additional_notes">additional_notes</MenuItem>
+                    <MenuItem value="business_central_functional_department">Department *</MenuItem>
+                    <MenuItem value="functional_area">Functional Area *</MenuItem>
+                    <MenuItem value="template_item">Template Item</MenuItem>
+                    <MenuItem value="functional_consultant">Functional Consultant *</MenuItem>
+                    <MenuItem value="requirement_owner_client">Client Owner *</MenuItem>
+                    <MenuItem value="solution_option_1">Solution Option 1</MenuItem>
+                    <MenuItem value="solution_option_1_time_estimate">Time Estimate 1</MenuItem>
+                    <MenuItem value="solution_option_2">Solution Option 2</MenuItem>
+                    <MenuItem value="solution_option_2_time_estimate">Time Estimate 2</MenuItem>
+                    <MenuItem value="solution_option_3">Solution Option 3</MenuItem>
+                    <MenuItem value="solution_option_3_time_estimate">Time Estimate 3</MenuItem>
+                    <MenuItem value="workshop_name">Workshop Name</MenuItem>
+                    <MenuItem value="phase_comments">Phase Comments</MenuItem>
+                    <MenuItem value="status_client">Client Status</MenuItem>
+                    <MenuItem value="client_comments">Client Comments</MenuItem>
+                    <MenuItem value="client_preferences">Client Preferences</MenuItem>
+                    <MenuItem value="solution_option">Solution Option (Legacy)</MenuItem>
+                    <MenuItem value="solution_description">Solution Description (Legacy)</MenuItem>
+                    <MenuItem value="additional_notes">Additional Notes</MenuItem>
                   </TextField>
                 </Grid>
               ))}
