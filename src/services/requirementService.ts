@@ -71,14 +71,20 @@ export const deleteRequirement = async (id: number): Promise<{ message: string }
 };
 
 // Bulk import requirements
-export const bulkImportRequirements = async (requirements: RequirementForm[]): Promise<{
+export const bulkImportRequirements = async (data: {
+  requirements: RequirementForm[];
+  allowPartialData?: boolean;
+  validateOnly?: boolean;
+}): Promise<{
   importedRequirements: Requirement[];
   errors: Array<{index: number; error: string}>;
 }> => {
   try {
-    const response = await axios.post(`${API_URL}/requirements/bulk`, {
-      requirements,
-      validateOnly: false
+    // Use the api instance instead of axios directly to include auth token
+    const response = await api.post(`/requirements/bulk`, {
+      requirements: data.requirements,
+      allowPartialData: data.allowPartialData || false,
+      validateOnly: data.validateOnly || false
     });
     return response.data;
   } catch (error) {

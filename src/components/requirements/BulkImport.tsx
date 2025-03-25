@@ -509,10 +509,10 @@ const BulkImport: React.FC = () => {
           title: '',
           description: '',
           details: '',
-          function_id: 0,
-          priority_id: 0,
-          status_id: 0,
-          fitgap_id: 0,
+          function_id: null,
+          priority_id: null,
+          status_id: null,
+          fitgap_id: null,
           phase: 'Initial',
           in_scope: true,
           option_id: null,
@@ -554,16 +554,18 @@ const BulkImport: React.FC = () => {
             else if (field === 'business_central_functional_department') {
               // Store department name for server-side resolution
               transformedRow['department_name'] = value;
-              // Department ID will be resolved on the server
+              // Department ID will be resolved on the server - don't pass numeric value
               transformedRow['business_central_functional_department'] = value;
-              transformedRow['bc_department_id'] = value;
+              // Delete bc_department_id to avoid ID conflicts
+              delete transformedRow['bc_department_id'];
             }
             else if (field === 'functional_area') {
               // Store area name for server-side resolution
               transformedRow['area_name'] = value;
-              // Area ID will be resolved on the server
+              // Area ID will be resolved on the server - don't pass numeric value
               transformedRow['functional_area'] = value;
-              transformedRow['functional_area_id'] = value;
+              // Delete functional_area_id to avoid ID conflicts
+              delete transformedRow['functional_area_id'];
             }
             else if (field === 'template_item') {
               // Convert to boolean
@@ -590,8 +592,12 @@ const BulkImport: React.FC = () => {
         return transformedRow as RequirementForm;
       });
 
-      // Send to API
-      const result = await bulkImportRequirements(transformedData);
+      // Send to API with a flag indicating this is a partial import
+      const result = await bulkImportRequirements({
+        requirements: transformedData,
+        allowPartialData: allowPartialMapping, // Add this flag to tell the server to use defaults
+        validateOnly: false
+      });
       
       // Calculate stats from the result
       const total = transformedData.length;
