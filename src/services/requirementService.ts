@@ -1,4 +1,5 @@
 import api from './api';
+import axios from 'axios';
 import { 
   Requirement, 
   RequirementsResponse, 
@@ -6,6 +7,8 @@ import {
   RequirementForm,
   StatsResponse
 } from '../types';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Get all requirements with optional filters
 export const getRequirements = async (
@@ -38,9 +41,18 @@ export const getRequirementById = async (id: number): Promise<RequirementRespons
 };
 
 // Create a new requirement
-export const createRequirement = async (requirement: RequirementForm): Promise<{ requirement: Requirement, message: string }> => {
-  const response = await api.post<{ requirement: Requirement, message: string }>('/requirements', requirement);
-  return response.data;
+export const createRequirement = async (requirement: RequirementForm): Promise<Requirement> => {
+  try {
+    const response = await axios.post(`${API_URL}/requirements`, requirement);
+    return response.data;
+  } catch (error) {
+    // Add better error handling
+    console.error('Error creating requirement:', error);
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
 };
 
 // Update an existing requirement
@@ -59,17 +71,23 @@ export const deleteRequirement = async (id: number): Promise<{ message: string }
 };
 
 // Bulk import requirements
-export const bulkImportRequirements = async (requirements: RequirementForm[]): Promise<{ 
-  importedRequirements: Requirement[], 
-  message: string,
-  errors?: Array<{ index: number, data: any, error: string }>
+export const bulkImportRequirements = async (requirements: RequirementForm[]): Promise<{
+  importedRequirements: Requirement[];
+  errors: Array<{index: number; error: string}>;
 }> => {
-  const response = await api.post<{ 
-    importedRequirements: Requirement[], 
-    message: string,
-    errors?: Array<{ index: number, data: any, error: string }>
-  }>('/requirements/bulk-import', { requirements });
-  return response.data;
+  try {
+    const response = await axios.post(`${API_URL}/requirements/bulk`, {
+      requirements,
+      validateOnly: false
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error bulk importing requirements:', error);
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
 };
 
 // Get requirement statistics for dashboard
@@ -156,4 +174,39 @@ export const bulkDeleteRequirements = async (ids: number[]): Promise<{ message: 
     data: { ids }
   });
   return response.data;
+};
+
+// Add type validation helper
+const validateRequirement = (requirement: RequirementForm): boolean => {
+  const requiredFields = [
+    'title',
+    'description', 
+    'module',
+    'submodule',
+    'function',
+    'priority',
+    'status',
+    'fitgap'
+  ];
+
+  return requiredFields.every(field => requirement[field as keyof RequirementForm] !== undefined);
+};
+
+// Add validation endpoint
+export const validateRequirements = async (requirements: RequirementForm[]): Promise<{
+  valid: boolean;
+  errors: Array<{index: number; error: string}>;
+}> => {
+  try {
+    const response = await axios.post(`${API_URL}/requirements/validate`, {
+      requirements
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error validating requirements:', error);
+    if (axios.isAxiosError(error) && error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
 };

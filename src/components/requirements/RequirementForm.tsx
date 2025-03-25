@@ -156,10 +156,15 @@ const RequirementForm: React.FC = () => {
         // Convert form values to RequirementForm type
         const requirementData: RequirementFormType = {
           ...values,
+          module: selectedModule || 0,
+          submodule: selectedSubModule || 0,
+          function: (functionList.find(f => f.function_id === values.function_id)?.name || ''),
+          priority: (priorityList.find(p => p.priority_id === values.priority_id)?.name || ''),
+          status: (statusList.find(s => s.status_id === values.status_id)?.name || ''),
+          fitgap: (fitGapList.find(fg => fg.fitgap_id === values.fitgap_id)?.name || ''),
           option_id: values.option_id || null,
           business_central_functional_department: values.business_central_functional_department || null,
           functional_area: values.functional_area || null,
-          // Set both field names to ensure compatibility
           bc_department_id: values.business_central_functional_department || null,
           functional_area_id: values.functional_area || null,
           solution_option_1_time_estimate: values.solution_option_1_time_estimate || null,

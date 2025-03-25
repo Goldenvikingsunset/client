@@ -283,34 +283,46 @@ export interface PasswordResetForm {
 
 export interface RequirementForm {
   title: string;
-  description: string;
-  details: string;
-  function_id: number;
-  priority_id: number;
-  status_id: number;
-  phase: string;
-  in_scope: boolean;
-  option_id: number | null;
-  fitgap_id: number | null;
-  comments: string;
-  // New BC RTM fields
-  business_central_functional_department: number | null;
-  functional_area: number | null;
-  // Add these fields to make them compatible with the Requirement model
-  bc_department_id: number | null;
-  functional_area_id: number | null;
-  template_item: boolean;
-  functional_consultant: string;
-  requirement_owner_client: string;
-  solution_option_1: string;
-  solution_option_1_time_estimate: number | null;
-  solution_option_2: string;
-  solution_option_2_time_estimate: number | null;
-  solution_option_3: string;
-  solution_option_3_time_estimate: number | null;
-  workshop_name: string;
-  phase_comments: string;
-  status_client: string;
-  client_comments: string;
-  client_preferences: string;
+  description: string | null;
+  details?: string | null;  // Updated to allow null and make it optional
+  module: string | number;
+  submodule: string | number;
+  function: string;
+  function_id?: number | null;
+  priority: string | number;
+  priority_id?: number | null;
+  status: string | number;
+  status_id?: number | null;
+  fitgap: string | number;
+  fitgap_id?: number | null;
+  phase?: string | null;
+  in_scope?: boolean;
+  option_id?: number | null;
+  comments?: string | null;
+  // BC RTM specific fields
+  business_central_functional_department?: string | number | null;
+  bc_department_id?: number | null;
+  functional_area?: string | number | null;
+  functional_area_id?: number | null;
+  template_item?: boolean;
+  functional_consultant?: string | null;
+  requirement_owner_client?: string | null;
+  solution_option_1?: string | null;
+  solution_option_1_time_estimate?: number | null;
+  solution_option_2?: string | null;
+  solution_option_2_time_estimate?: number | null;
+  solution_option_3?: string | null;
+  solution_option_3_time_estimate?: number | null;
+  workshop_name?: string | null;
+  phase_comments?: string | null;
+  status_client?: string | null;
+  client_comments?: string | null;
+  client_preferences?: string | null;
+  needs_review?: boolean;
+}
+
+export interface Requirement extends RequirementForm {
+  id: number;
+  created_at: string;
+  updated_at: string;
 }
