@@ -194,4 +194,17 @@ export const bcrtm = {
     const response = await api.delete(`/bc-data/departments/${id}`);
     return response.data;
   },
+  // New functional area management methods
+  createArea: async (data: { name: string; description: string; department_id: number }) => {
+    const response = await api.post('/bc-data/functional-areas', data);
+    return response.data;
+  },
+  updateArea: async (id: number, data: { name: string; description: string; department_id: number }) => {
+    const response = await api.put(`/bc-data/functional-areas/${id}`, data);
+    return response.data;
+  },
+  deleteArea: async (id: number) => {
+    const response = await api.delete(`/bc-data/functional-areas/${id}`);
+    return response.data;
+  }
 };

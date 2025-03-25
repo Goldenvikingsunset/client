@@ -89,6 +89,7 @@ export interface FunctionalArea {
   id: number;
   department_id: number;
   name: string;
+  description?: string | null;
   BCFunctionalDepartment?: BCFunctionalDepartment;
 }
 

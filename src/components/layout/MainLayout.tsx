@@ -71,17 +71,16 @@ const navigationItems: NavigationItem[] = [
     path: '/master-data', 
     requiredRole: 'Admin',
     subItems: [
-      { text: 'Modules', icon: <ModulesIcon />, path: '/master-data/modules', requiredRole: 'Admin' },
-      { text: 'Submodules', icon: <SubModulesIcon />, path: '/master-data/submodules', requiredRole: 'Admin' },
-      { text: 'Functions', icon: <FunctionsIcon />, path: '/master-data/functions', requiredRole: 'Admin' },
+      { text: 'Module & Department Management', icon: <ModulesIcon />, path: '/master-data/relationships', requiredRole: 'Admin' },
       { text: 'Priorities', icon: <PrioritiesIcon />, path: '/master-data/priorities', requiredRole: 'Admin' },
       { text: 'Statuses', icon: <StatusesIcon />, path: '/master-data/statuses', requiredRole: 'Admin' },
       { text: 'Fit/Gap Statuses', icon: <FitGapIcon />, path: '/master-data/fitgap', requiredRole: 'Admin' },
       { text: 'Solution Options', icon: <SolutionsIcon />, path: '/master-data/solution-options', requiredRole: 'Admin' },
-      { text: 'BC Departments', icon: <DepartmentIcon />, path: '/master-data/bc-departments', requiredRole: 'Admin' },
     ]
   },
-  { text: 'User Management', icon: <UsersIcon />, path: '/users', requiredRole: 'Admin' },
+  { text: 'User Management', icon: <UsersIcon />, path: '/admin/users', requiredRole: 'Admin' },
+  { text: 'Department Management', icon: <DepartmentIcon />, path: '/admin/departments', requiredRole: 'Admin' },
+  { text: 'Area Management', icon: <DepartmentIcon />, path: '/admin/areas', requiredRole: 'Admin' },
 ];
 
 const MainLayout: React.FC = () => {

@@ -52,7 +52,7 @@ import {
   CloudUpload as CloudUploadIcon,
   ViewColumn as ViewColumnIcon,
 } from '@mui/icons-material';
-import { getRequirements, exportRequirements } from '../../services/requirementService';
+import { getRequirements, exportRequirements, bulkDeleteRequirements, deleteRequirement } from '../../services/requirementService';
 import { getSavedFilters, saveFilter, deleteFilter } from '../../services/filterService';
 import { Requirement, Priority, Status, FitGapStatus, Module, SubModule, Function, SavedFilter, BCFunctionalDepartment, FunctionalArea } from '../../types';
 import { modules, subModules, functions, priorities, statuses, fitGapStatuses } from '../../services/masterDataService';
@@ -146,6 +146,12 @@ const RequirementsList: React.FC = () => {
   const [departmentList, setDepartmentList] = useState<BCFunctionalDepartment[]>([]);
   const [areaList, setAreaList] = useState<FunctionalArea[]>([]);
   const [filteredAreaList, setFilteredAreaList] = useState<FunctionalArea[]>([]);
+
+  // Add state for selected items
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   // Fetch requirements
   const fetchRequirements = useCallback(async () => {
@@ -422,6 +428,72 @@ const RequirementsList: React.FC = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
+  // Add function to handle single item delete
+  const handleDeleteRequirement = async (id: number, skipConfirmation = false) => {
+    try {
+      if (!skipConfirmation && !window.confirm('Are you sure you want to delete this requirement?')) {
+        return;
+      }
+      
+      setDeleteInProgress(true);
+      await deleteRequirement(id);
+      setSuccess('Requirement deleted successfully');
+      fetchRequirements();
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      setError(err.response?.data?.message || 'Failed to delete requirement');
+    } finally {
+      setDeleteInProgress(false);
+    }
+  };
+
+  // Add function to handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedItems.length === 0) {
+      setError('No requirements selected for deletion');
+      return;
+    }
+    
+    try {
+      setDeleteInProgress(true);
+      const result = await bulkDeleteRequirements(selectedItems);
+      setSuccess(`Successfully deleted ${result.count} requirements`);
+      // Reset selected items
+      setSelectedItems([]);
+      // Close dialog
+      setBulkDeleteDialogOpen(false);
+      // Refresh data
+      fetchRequirements();
+    } catch (err: any) {
+      console.error('Bulk delete error:', err);
+      setError(err.response?.data?.message || 'Failed to delete requirements');
+    } finally {
+      setDeleteInProgress(false);
+    }
+  };
+
+  // Toggle item selection
+  const handleToggleSelectItem = (id: number, event: React.MouseEvent<Element, MouseEvent> | React.ChangeEvent<HTMLInputElement>) => {
+    event.stopPropagation(); // Prevent row click
+    
+    setSelectedItems(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(item => item !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  // Select/Deselect all items
+  const handleToggleSelectAll = () => {
+    if (selectedItems.length === requirements.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(requirements.map(req => req.req_id));
+    }
+  };
+
   if (loading && page === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -436,6 +508,17 @@ const RequirementsList: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Requirements</Typography>
         <Box>
+          {selectedItems.length > 0 && hasRole('Admin') && (
+            <Button
+              sx={{ mr: 1 }}
+              variant="contained"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setBulkDeleteDialogOpen(true)}
+            >
+              Delete Selected ({selectedItems.length})
+            </Button>
+          )}
           <Button
             sx={{ mr: 1 }}
             variant="outlined"
@@ -859,6 +942,18 @@ const RequirementsList: React.FC = () => {
           <Table sx={{ minWidth: 650 }} aria-label="requirements table">
             <TableHead>
               <TableRow>
+                {hasRole('Admin') && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      indeterminate={selectedItems.length > 0 && selectedItems.length < requirements.length}
+                      checked={requirements.length > 0 && selectedItems.length === requirements.length}
+                      onChange={handleToggleSelectAll}
+                      inputProps={{
+                        'aria-label': 'select all requirements',
+                      }}
+                    />
+                  </TableCell>
+                )}
                 {columns
                   .filter(col => col.visible)
                   .map(column => (
@@ -883,7 +978,7 @@ const RequirementsList: React.FC = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={columns.filter(col => col.visible).length + 1} align="center">
+                  <TableCell colSpan={(hasRole('Admin') ? 1 : 0) + columns.filter(col => col.visible).length + 1} align="center">
                     <CircularProgress size={30} sx={{ my: 3 }} aria-label="Loading requirements" />
                   </TableCell>
                 </TableRow>
@@ -902,7 +997,19 @@ const RequirementsList: React.FC = () => {
                     tabIndex={0}
                     role="button"
                     aria-label={`View requirement: ${req.title}`}
+                    selected={selectedItems.includes(req.req_id)}
                   >
+                    {hasRole('Admin') && (
+                      <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedItems.includes(req.req_id)}
+                          onChange={(e) => handleToggleSelectItem(req.req_id, e)}
+                          inputProps={{
+                            'aria-labelledby': `requirement-${req.req_id}`,
+                          }}
+                        />
+                      </TableCell>
+                    )}
                     {columns
                       .filter(col => col.visible)
                       .map(column => (
@@ -937,7 +1044,10 @@ const RequirementsList: React.FC = () => {
                         <Tooltip title="Delete">
                           <IconButton 
                             color="error"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRequirement(req.req_id);
+                            }}
                           >
                             <DeleteIcon />
                           </IconButton>
@@ -948,7 +1058,7 @@ const RequirementsList: React.FC = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.filter(col => col.visible).length + 1} align="center">
+                  <TableCell colSpan={(hasRole('Admin') ? 1 : 0) + columns.filter(col => col.visible).length + 1} align="center">
                     <Typography variant="body1" sx={{ my: 3 }}>
                       No requirements found
                     </Typography>
@@ -971,6 +1081,36 @@ const RequirementsList: React.FC = () => {
           }
         />
       </Paper>
+
+      {/* Bulk Delete confirmation dialog */}
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onClose={() => setBulkDeleteDialogOpen(false)}
+        aria-labelledby="bulk-delete-dialog-title"
+        aria-describedby="bulk-delete-dialog-description"
+      >
+        <DialogTitle id="bulk-delete-dialog-title">Confirm Bulk Delete</DialogTitle>
+        <DialogContent>
+          <Typography id="bulk-delete-dialog-description">
+            Are you sure you want to delete {selectedItems.length} selected requirements? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteDialogOpen(false)} disabled={deleteInProgress}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleBulkDelete} 
+            color="error" 
+            variant="contained" 
+            autoFocus
+            disabled={deleteInProgress}
+            startIcon={deleteInProgress ? <CircularProgress size={20} /> : <DeleteIcon />}
+          >
+            {deleteInProgress ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Export Menu */}
       <Menu

@@ -149,3 +149,11 @@ export const exportRequirements = async (format: 'excel' | 'pdf', filters?: Reco
     throw error;
   }
 };
+
+// Bulk delete requirements - new method
+export const bulkDeleteRequirements = async (ids: number[]): Promise<{ message: string, count: number }> => {
+  const response = await api.delete<{ message: string, count: number }>('/requirements/bulk', {
+    data: { ids }
+  });
+  return response.data;
+};
