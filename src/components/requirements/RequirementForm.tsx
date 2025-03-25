@@ -108,6 +108,7 @@ const RequirementForm: React.FC = () => {
   // Add new state for BC RTM data with default empty arrays
   const [departments, setDepartments] = useState<BCFunctionalDepartment[]>([]);
   const [functionalAreas, setFunctionalAreas] = useState<FunctionalArea[]>([]);
+  const [filteredFunctionalAreas, setFilteredFunctionalAreas] = useState<FunctionalArea[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<number | null>(null);
   const [selectedBCDepartment, setSelectedBCDepartment] = useState<number | null>(null);
   
@@ -395,10 +396,10 @@ const RequirementForm: React.FC = () => {
     
     try {
       const response = await bcrtm.getFunctionalAreas({ department_id: departmentId });
-      setFunctionalAreas(response?.areas || []);
+      setFilteredFunctionalAreas(response?.areas || []);
     } catch (err) {
       console.error('Error fetching functional areas:', err);
-      setFunctionalAreas([]);
+      setFilteredFunctionalAreas([]);
     }
   };
 
@@ -893,7 +894,7 @@ const RequirementForm: React.FC = () => {
                         }}
                       >
                         <MenuItem value="">Select Area</MenuItem>
-                        {safeFunctionalAreas.map((area) => (
+                        {filteredFunctionalAreas.map((area) => (
                           <MenuItem key={area.id} value={area.id}>
                             {area.name}
                           </MenuItem>

@@ -11,9 +11,9 @@ export const getDepartments = async (): Promise<{ departments: BCFunctionalDepar
   }
 };
 
-export const getFunctionalAreas = async (): Promise<{ areas: FunctionalArea[] }> => {
+export const getFunctionalAreas = async (params?: { department_id?: number }): Promise<{ areas: FunctionalArea[] }> => {
   try {
-    const response = await api.get<{ areas: FunctionalArea[] }>('/bc-data/functional-areas');
+    const response = await api.get<{ areas: FunctionalArea[] }>('/bc-data/functional-areas', { params });
     return response.data;
   } catch (error) {
     console.error('Error fetching functional areas:', error);
@@ -61,7 +61,7 @@ export const deleteDepartment = async (id: number): Promise<{ message: string }>
   }
 };
 
-export const createArea = async (data: { name: string, description: string, department_id: number }): Promise<FunctionalArea> => {
+export const createArea = async (data: { name: string; description: string; department_id: number }): Promise<FunctionalArea> => {
   try {
     const response = await api.post<FunctionalArea>('/bc-data/functional-areas', data);
     return response.data;
@@ -71,7 +71,7 @@ export const createArea = async (data: { name: string, description: string, depa
   }
 };
 
-export const updateArea = async (id: number, data: { name?: string, description?: string, department_id?: number }): Promise<FunctionalArea> => {
+export const updateArea = async (id: number, data: { name?: string; description?: string; department_id?: number }): Promise<FunctionalArea> => {
   try {
     const response = await api.put<FunctionalArea>(`/bc-data/functional-areas/${id}`, data);
     return response.data;

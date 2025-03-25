@@ -139,19 +139,26 @@ const RelationshipManager: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [modulesData, submodulesData, functionsData, departmentsResponse, areasResponse] = await Promise.all([
+      const [modulesData, submodulesData, functionsData, departmentsResponse] = await Promise.all([
         modules.getAll(),
         subModules.getAll(),
         functions.getAll(),
-        bcrtm.getDepartments(),
-        bcrtm.getFunctionalAreas(),
+        bcrtm.getDepartments()
       ]);
-      
+
       setModulesList(modulesData);
       setSubmodulesList(submodulesData);
       setFunctionsList(functionsData);
       setDepartmentsList(departmentsResponse.departments || []);
-      setAreasList(areasResponse.areas || []);
+
+      // If a department is selected, only fetch areas for that department
+      if (selectedDepartment) {
+        const areasResponse = await bcrtm.getFunctionalAreas({ department_id: selectedDepartment.id });
+        setAreasList(areasResponse.areas || []);
+      } else {
+        const areasResponse = await bcrtm.getFunctionalAreas();
+        setAreasList(areasResponse.areas || []);
+      }
     } catch (err: any) {
       console.error('Error fetching master data:', err);
       setError('Failed to load master data. Please try again.');
@@ -172,8 +179,15 @@ const RelationshipManager: React.FC = () => {
   };
 
   // Select a department to view its functional areas
-  const handleDepartmentSelect = (department: BCFunctionalDepartment) => {
+  const handleDepartmentSelect = async (department: BCFunctionalDepartment) => {
     setSelectedDepartment(department);
+    try {
+      const areasResponse = await bcrtm.getFunctionalAreas({ department_id: department.id });
+      setAreasList(areasResponse.areas || []);
+    } catch (err: any) {
+      console.error('Error fetching areas for department:', err);
+      setError('Failed to load functional areas for selected department');
+    }
   };
 
   // Dialog handlers for creating new items
